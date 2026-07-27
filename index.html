@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="YJUN羽毛球" />
+  <meta name="theme-color" content="#07111f" />
+  <meta name="format-detection" content="telephone=no" />
+  <title>YJUN羽毛球记录小工具</title>
+
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icon-180.png" />
+
+  <style>
+    :root{
+      --bg:#07111f;
+      --panel:#0d1b2d;
+      --panel2:#12243a;
+      --line:#24415f;
+      --text:#f8fafc;
+      --muted:#94a3b8;
+      --green:#22c55e;
+      --blue:#38bdf8;
+      --amber:#f59e0b;
+      --red:#ef4444;
+      --shadow:0 18px 50px rgba(0,0,0,.28);
+    }
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+      -webkit-touch-callout:none;
+    }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      background:
+        radial-gradient(circle at 20% 0%,rgba(56,189,248,.12),transparent 34%),
+        linear-gradient(180deg,#07111f 0%,#0a1524 100%);
+      color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC","Helvetica Neue",sans-serif;
+      overscroll-behavior:none;
+    }
+
+    body{
+      min-height:100dvh;
+      padding:
+        max(env(safe-area-inset-top),12px)
+        max(env(safe-area-inset-right),12px)
+        max(env(safe-area-inset-bottom),16px)
+        max(env(safe-area-inset-left),12px);
+    }
+
+    button,input{
+      font:inherit;
+    }
+
+    button{
+      border:0;
+      color:white;
+      cursor:pointer;
+      touch-action:manipulation;
+    }
+
+    button:active{
+      transform:scale(.975);
+    }
+
+    .app{
+      width:min(100%,560px);
+      margin:0 auto;
+      min-height:calc(100dvh - max(env(safe-area-inset-top),12px) - max(env(safe-area-inset-bottom),16px));
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      min-height:42px;
+    }
+
+    .brand{
+      font-size:18px;
+      font-weight:850;
+      letter-spacing:-.2px;
+    }
+
+    .icon-btn{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      background:rgba(18,36,58,.95);
+      border:1px solid var(--line);
+      font-size:19px;
+      display:grid;
+      place-items:center;
+    }
+
+    .progress-wrap{
+      background:rgba(13,27,45,.92);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:12px 14px;
+      box-shadow:var(--shadow);
+    }
+
+    .progress-row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-bottom:9px;
+    }
+
+    .progress-row strong{
+      font-size:14px;
+    }
+
+    .progress-row span{
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .bar{
+      height:9px;
+      border-radius:999px;
+      overflow:hidden;
+      background:#081421;
+    }
+
+    .bar > div{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,var(--blue),var(--green));
+      border-radius:999px;
+      transition:width .25s ease;
+    }
+
+    .match-card{
+      flex:1;
+      min-height:0;
+      background:
+        linear-gradient(155deg,rgba(56,189,248,.10),rgba(34,197,94,.04)),
+        rgba(13,27,45,.96);
+      border:1px solid #2b5c82;
+      border-radius:26px;
+      padding:18px;
+      box-shadow:var(--shadow);
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      gap:15px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .match-card::after{
+      content:"";
+      position:absolute;
+      width:180px;
+      height:180px;
+      border-radius:50%;
+      background:rgba(56,189,248,.06);
+      right:-70px;
+      top:-80px;
+      pointer-events:none;
+    }
+
+    .round-line{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      position:relative;
+      z-index:1;
+    }
+
+    .round-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      background:#0c4a6e;
+      border:1px solid #0ea5e9;
+      padding:7px 12px;
+      border-radius:999px;
+      font-size:13px;
+      font-weight:850;
+    }
+
+    .type{
+      font-size:13px;
+      color:#bae6fd;
+      font-weight:700;
+    }
+
+    .teams{
+      display:grid;
+      grid-template-columns:1fr auto 1fr;
+      gap:10px;
+      align-items:center;
+      position:relative;
+      z-index:1;
+    }
+
+    .team{
+      min-width:0;
+      text-align:center;
+      font-size:clamp(18px,5.4vw,27px);
+      font-weight:900;
+      line-height:1.28;
+      word-break:break-word;
+      letter-spacing:-.4px;
+    }
+
+    .vs{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:800;
+    }
+
+    .score-zone{
+      display:grid;
+      grid-template-columns:1fr 52px 1fr;
+      gap:10px;
+      align-items:center;
+      position:relative;
+      z-index:1;
+    }
+
+    .score-box{
+      background:#081421;
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:10px;
+      text-align:center;
+    }
+
+    .score{
+      font-size:42px;
+      line-height:1;
+      font-weight:950;
+      font-variant-numeric:tabular-nums;
+      margin:4px 0 8px;
+    }
+
+    .score-controls{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+
+    .score-controls button{
+      min-height:42px;
+      border-radius:12px;
+      background:#18314b;
+      font-size:22px;
+      font-weight:900;
+    }
+
+    .score-controls button.plus{
+      background:#0f766e;
+    }
+
+    .score-presets{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:6px;
+      margin-top:8px;
+    }
+
+    .score-presets button{
+      min-height:34px;
+      border-radius:10px;
+      background:#23415f;
+      border:1px solid #31577a;
+      color:#e0f2fe;
+      font-size:13px;
+      font-weight:900;
+      padding:0;
+    }
+
+    .score-presets button:last-child{
+      background:#166534;
+      border-color:#22c55e;
+      color:#dcfce7;
+    }
+
+    .colon{
+      text-align:center;
+      color:var(--muted);
+      font-size:30px;
+      font-weight:900;
+    }
+
+    .timer{
+      text-align:center;
+      font-size:34px;
+      font-weight:950;
+      font-variant-numeric:tabular-nums;
+      letter-spacing:1px;
+      position:relative;
+      z-index:1;
+    }
+
+    .primary-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      position:relative;
+      z-index:1;
+    }
+
+    .big-btn{
+      min-height:58px;
+      border-radius:17px;
+      font-size:17px;
+      font-weight:900;
+      box-shadow:0 10px 25px rgba(0,0,0,.22);
+    }
+
+    .start{
+      background:linear-gradient(135deg,#16a34a,#22c55e);
+    }
+
+    .pause{
+      background:linear-gradient(135deg,#b45309,#f59e0b);
+      color:#2b1600;
+    }
+
+    .finish{
+      grid-column:1/-1;
+      min-height:66px;
+      background:linear-gradient(135deg,#0284c7,#38bdf8);
+      color:#042f43;
+      font-size:19px;
+    }
+
+    .bottom-nav{
+      display:grid;
+      grid-template-columns:1fr 1.45fr 1fr;
+      gap:10px;
+    }
+
+    .nav-btn{
+      min-height:52px;
+      border-radius:16px;
+      background:rgba(18,36,58,.98);
+      border:1px solid var(--line);
+      font-size:15px;
+      font-weight:850;
+    }
+
+    .list-btn{
+      background:#1e3a5f;
+    }
+
+    .sheet-backdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.52);
+      opacity:0;
+      visibility:hidden;
+      transition:.2s ease;
+      z-index:20;
+    }
+
+    .sheet-backdrop.show{
+      opacity:1;
+      visibility:visible;
+    }
+
+    .sheet{
+      position:fixed;
+      left:0;
+      right:0;
+      bottom:0;
+      max-height:78dvh;
+      background:#0c1929;
+      border-radius:26px 26px 0 0;
+      border-top:1px solid #31577a;
+      transform:translateY(105%);
+      transition:.25s ease;
+      z-index:21;
+      padding:
+        10px
+        max(env(safe-area-inset-right),14px)
+        max(env(safe-area-inset-bottom),18px)
+        max(env(safe-area-inset-left),14px);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      box-shadow:0 -20px 50px rgba(0,0,0,.4);
+    }
+
+    .sheet.show{
+      transform:translateY(0);
+    }
+
+    .grabber{
+      width:42px;
+      height:5px;
+      border-radius:999px;
+      background:#475569;
+      margin:0 auto 8px;
+    }
+
+    .sheet-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      padding:4px 2px 10px;
+    }
+
+    .sheet-head h2{
+      margin:0;
+      font-size:18px;
+    }
+
+    .sheet-actions{
+      display:flex;
+      gap:8px;
+    }
+
+    .small-btn{
+      min-height:36px;
+      padding:0 12px;
+      border-radius:11px;
+      background:#1e3a5f;
+      font-size:13px;
+      font-weight:800;
+    }
+
+    .danger{
+      background:#7f1d1d;
+    }
+
+    .round-list{
+      overflow:auto;
+      overscroll-behavior:contain;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      padding-bottom:8px;
+    }
+
+    .round-item{
+      width:100%;
+      text-align:left;
+      display:grid;
+      grid-template-columns:46px 46px 1fr auto;
+      gap:8px;
+      align-items:center;
+      background:#11233a;
+      border:1px solid #294863;
+      border-radius:15px;
+      padding:11px;
+    }
+
+    .round-item.current{
+      border-color:var(--blue);
+      box-shadow:0 0 0 2px rgba(56,189,248,.14);
+    }
+
+    .round-item.done{
+      background:linear-gradient(90deg,#123c2a,#11233a);
+    }
+
+    .ri-num{
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .ri-type{
+      font-size:12px;
+      color:#cbd5e1;
+    }
+
+    .ri-match{
+      font-size:13px;
+      line-height:1.35;
+      color:#e2e8f0;
+    }
+
+    .ri-score{
+      display:block;
+      margin-top:3px;
+      color:#fde68a;
+      font-weight:800;
+    }
+
+    .ri-state{
+      font-size:18px;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(max(env(safe-area-inset-bottom),16px) + 16px);
+      transform:translate(-50%,25px);
+      background:rgba(2,8,23,.94);
+      border:1px solid #334155;
+      border-radius:999px;
+      padding:10px 16px;
+      font-size:13px;
+      opacity:0;
+      visibility:hidden;
+      transition:.2s ease;
+      z-index:50;
+      white-space:nowrap;
+      max-width:90vw;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .toast.show{
+      opacity:1;
+      visibility:visible;
+      transform:translate(-50%,0);
+    }
+
+    .help{
+      position:fixed;
+      inset:0;
+      z-index:60;
+      background:rgba(2,8,23,.9);
+      display:none;
+      place-items:center;
+      padding:24px;
+    }
+
+    .help.show{
+      display:grid;
+    }
+
+    .help-card{
+      width:min(100%,440px);
+      background:#0f2034;
+      border:1px solid #31577a;
+      border-radius:24px;
+      padding:20px;
+      box-shadow:var(--shadow);
+    }
+
+    .help-card h2{
+      margin:0 0 12px;
+      font-size:20px;
+    }
+
+    .help-card p{
+      color:#cbd5e1;
+      line-height:1.65;
+      font-size:14px;
+      margin:8px 0;
+    }
+
+    .help-card .tip{
+      background:#081421;
+      border:1px solid #24415f;
+      border-radius:15px;
+      padding:12px 14px;
+      margin:12px 0;
+    }
+
+    .help-card button{
+      width:100%;
+      min-height:50px;
+      border-radius:15px;
+      background:#0284c7;
+      font-weight:900;
+      margin-top:8px;
+    }
+
+    .hidden{display:none!important}
+
+    @media (max-height:700px){
+      .app{gap:8px}
+      .progress-wrap{padding:9px 12px}
+      .match-card{padding:14px;gap:10px}
+      .score{font-size:34px}
+      .score-controls button{min-height:36px}
+      .big-btn{min-height:50px}
+      .finish{min-height:56px}
+      .bottom-nav .nav-btn{min-height:46px}
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">🏸 YJUN羽毛球记录小工具</div>
+      <button class="icon-btn" id="helpBtn" aria-label="使用帮助">?</button>
+    </header>
+
+    <section class="progress-wrap">
+      <div class="progress-row">
+        <strong id="progressText">第 1 / 14 轮</strong>
+        <span id="doneText">已完成 0 场</span>
+      </div>
+      <div class="bar"><div id="progressBar"></div></div>
+    </section>
+
+    <section class="match-card" id="swipeArea">
+      <div class="round-line">
+        <span class="round-badge" id="roundBadge">第 1 轮</span>
+        <span class="type" id="typeText">混双</span>
+      </div>
+
+      <div class="teams">
+        <div class="team" id="leftTeam">YJUN＋WY</div>
+        <div class="vs">VS</div>
+        <div class="team" id="rightTeam">OTT＋Forest</div>
+      </div>
+
+      <div class="score-zone">
+        <div class="score-box">
+          <div class="score" id="scoreA">0</div>
+          <div class="score-controls">
+            <button data-side="a" data-delta="-1">−</button>
+            <button class="plus" data-side="a" data-delta="1">＋</button>
+          </div>
+          <div class="score-presets">
+            <button data-side="a" data-score="10">10</button>
+            <button data-side="a" data-score="15">15</button>
+            <button data-side="a" data-score="18">18</button>
+            <button data-side="a" data-score="21">21</button>
+          </div>
+        </div>
+
+        <div class="colon">:</div>
+
+        <div class="score-box">
+          <div class="score" id="scoreB">0</div>
+          <div class="score-controls">
+            <button data-side="b" data-delta="-1">−</button>
+            <button class="plus" data-side="b" data-delta="1">＋</button>
+          </div>
+          <div class="score-presets">
+            <button data-side="b" data-score="10">10</button>
+            <button data-side="b" data-score="15">15</button>
+            <button data-side="b" data-score="18">18</button>
+            <button data-side="b" data-score="21">21</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="timer" id="timer">00:00</div>
+
+      <div class="primary-actions">
+        <button class="big-btn start" id="startBtn">▶ 开始本轮</button>
+        <button class="big-btn pause" id="pauseBtn">⏸ 暂停</button>
+        <button class="big-btn finish" id="finishBtn">✓ 完成本轮并进入下一轮</button>
+      </div>
+    </section>
+
+    <nav class="bottom-nav">
+      <button class="nav-btn" id="prevBtn">← 上一轮</button>
+      <button class="nav-btn list-btn" id="listBtn">☰ 全部轮次</button>
+      <button class="nav-btn" id="nextBtn">下一轮 →</button>
+    </nav>
+  </main>
+
+  <div class="sheet-backdrop" id="backdrop"></div>
+
+  <section class="sheet" id="sheet" aria-hidden="true">
+    <div class="grabber"></div>
+    <div class="sheet-head">
+      <h2>全部轮次</h2>
+      <div class="sheet-actions">
+        <button class="small-btn" id="exportBtn">分享记录</button>
+        <button class="small-btn" id="copyBtn">复制记录</button>
+        <button class="small-btn danger" id="resetBtn">清空</button>
+      </div>
+    </div>
+    <div class="round-list" id="roundList"></div>
+  </section>
+
+  <div class="help" id="help">
+    <div class="help-card">
+      <h2>在 iPhone 上这样用最方便</h2>
+      <div class="tip">
+        <p><strong>说明：</strong>从 ChatGPT 或“文件”App 点开的本地 HTML，通常处于文件预览界面，不一定会出现“用 Safari 打开”。“添加到主屏幕”需要页面本身在浏览器中打开。</p>
+      </div>
+      <p>点击“开始本轮”计时；比分可用＋/−调整，也可一键设为 10、15、18 或 21 分；比赛结束点击“完成本轮”，会自动进入下一轮。</p>
+      <p>“分享记录”会优先调起 iPhone 系统分享页；若当前预览环境不支持文件分享，可使用“复制记录”后粘贴到备忘录、微信或表格。</p>
+      <p>在比赛卡片上左右滑动，也可以快速切换轮次。所有记录都会自动保存在当前打开环境中。</p>
+      <button id="closeHelpBtn">知道了</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  const matches = [
+    {type:"混双", left:"YJUN＋WY", right:"OTT＋Forest"},
+    {type:"混双", left:"OTT＋WY", right:"WZY＋ZY"},
+    {type:"混双", left:"YJUN＋Forest", right:"WZY＋YBY"},
+    {type:"女双", left:"Forest＋WY", right:"ZY＋YBY"},
+    {type:"混双", left:"YJUN＋ZY", right:"WZY＋WY"},
+    {type:"混双", left:"YJUN＋YBY", right:"OTT＋Forest"},
+    {type:"混双", left:"OTT＋WY", right:"WZY＋YBY"},
+    {type:"混双", left:"YJUN＋ZY", right:"WZY＋Forest"},
+    {type:"女双", left:"Forest＋ZY", right:"WY＋YBY"},
+    {type:"混双", left:"YJUN＋WY", right:"OTT＋YBY"},
+    {type:"混双", left:"OTT＋ZY", right:"WZY＋Forest"},
+    {type:"混双", left:"YJUN＋Forest", right:"WZY＋WY"},
+    {type:"混双", left:"YJUN＋YBY", right:"OTT＋ZY"},
+    {type:"混双", left:"OTT＋YBY", right:"WZY＋ZY"}
+  ];
+
+  const STORAGE_KEY = "yjun_badminton_iphone_v1";
+
+  const blankState = () => ({
+    current:0,
+    running:false,
+    startedAt:null,
+    elapsed:Array(matches.length).fill(0),
+    completed:Array(matches.length).fill(false),
+    scores:Array.from({length:matches.length},()=>({a:0,b:0}))
+  });
+
+  let state;
+  try{
+    state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || blankState();
+    if(!Array.isArray(state.elapsed) || state.elapsed.length !== matches.length) state = blankState();
+  }catch(e){
+    state = blankState();
+  }
+
+  let timerHandle = null;
+  let toastHandle = null;
+  let touchStartX = null;
+  let wakeLock = null;
+
+  const $ = id => document.getElementById(id);
+
+  function save(){
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+  }
+
+  function vibrate(ms=20){
+    if(navigator.vibrate) navigator.vibrate(ms);
+  }
+
+  function showToast(text){
+    clearTimeout(toastHandle);
+    $("toast").textContent = text;
+    $("toast").classList.add("show");
+    toastHandle = setTimeout(()=>$("toast").classList.remove("show"),1400);
+  }
+
+  function pad(n){
+    return String(n).padStart(2,"0");
+  }
+
+  function secondsFor(index){
+    let sec = Number(state.elapsed[index] || 0);
+    if(index === state.current && state.running && state.startedAt){
+      sec += (Date.now()-state.startedAt)/1000;
+    }
+    return sec;
+  }
+
+  function fmt(sec){
+    sec = Math.max(0,Math.floor(sec));
+    return `${pad(Math.floor(sec/60))}:${pad(sec%60)}`;
+  }
+
+  function commitRunningTime(){
+    if(state.running && state.startedAt){
+      state.elapsed[state.current] += (Date.now()-state.startedAt)/1000;
+      state.startedAt = Date.now();
+      save();
+    }
+  }
+
+  async function requestWakeLock(){
+    try{
+      if("wakeLock" in navigator){
+        wakeLock = await navigator.wakeLock.request("screen");
+      }
+    }catch(e){}
+  }
+
+  function releaseWakeLock(){
+    try{
+      if(wakeLock) wakeLock.release();
+    }catch(e){}
+    wakeLock = null;
+  }
+
+  function start(){
+    if(state.running) return;
+    state.running = true;
+    state.startedAt = Date.now();
+    save();
+    requestWakeLock();
+    vibrate();
+    render();
+  }
+
+  function pause(){
+    if(!state.running) return;
+    state.elapsed[state.current] += (Date.now()-state.startedAt)/1000;
+    state.running = false;
+    state.startedAt = null;
+    releaseWakeLock();
+    save();
+    vibrate();
+    render();
+  }
+
+  function goTo(index,keepSheet=false){
+    if(index < 0 || index >= matches.length) return;
+    if(state.running){
+      state.elapsed[state.current] += (Date.now()-state.startedAt)/1000;
+      state.running = false;
+      state.startedAt = null;
+      releaseWakeLock();
+    }
+    state.current = index;
+    save();
+    vibrate(10);
+    render();
+    if(!keepSheet) closeSheet();
+  }
+
+  function finish(){
+    pause();
+    state.completed[state.current] = true;
+    const next = state.completed.findIndex((done,i)=>!done && i>state.current);
+    if(next !== -1){
+      state.current = next;
+      showToast("已完成，进入下一轮");
+    }else{
+      const remaining = state.completed.findIndex(done=>!done);
+      if(remaining !== -1){
+        state.current = remaining;
+        showToast("已跳转到未完成轮次");
+      }else{
+        showToast("全部比赛已完成");
+      }
+    }
+    save();
+    vibrate([25,35,25]);
+    render();
+  }
+
+  function changeScore(side,delta){
+    const score = state.scores[state.current];
+    score[side] = Math.max(0,Math.min(99,Number(score[side] || 0)+delta));
+    save();
+    vibrate(8);
+    renderScore();
+    renderList();
+  }
+
+  function setScore(side,value){
+    const score = state.scores[state.current];
+    score[side] = Number(value);
+    save();
+    vibrate(12);
+    renderScore();
+    renderList();
+    showToast(`已设为 ${value} 分`);
+  }
+
+  function renderScore(){
+    const score = state.scores[state.current];
+    $("scoreA").textContent = score.a;
+    $("scoreB").textContent = score.b;
+  }
+
+  function renderTimer(){
+    $("timer").textContent = fmt(secondsFor(state.current));
+  }
+
+  function renderCurrent(){
+    const m = matches[state.current];
+    const doneCount = state.completed.filter(Boolean).length;
+
+    $("roundBadge").textContent = `第 ${state.current+1} 轮`;
+    $("typeText").textContent = m.type;
+    $("leftTeam").textContent = m.left;
+    $("rightTeam").textContent = m.right;
+    $("progressText").textContent = `第 ${state.current+1} / ${matches.length} 轮`;
+    $("doneText").textContent = `已完成 ${doneCount} 场`;
+    $("progressBar").style.width = `${(doneCount/matches.length)*100}%`;
+
+    $("startBtn").classList.toggle("hidden",state.running);
+    $("pauseBtn").classList.toggle("hidden",!state.running);
+    if(state.running){
+      $("startBtn").parentElement.style.gridTemplateColumns = "1fr";
+    }else{
+      $("startBtn").parentElement.style.gridTemplateColumns = "1fr";
+    }
+
+    $("finishBtn").textContent = state.completed[state.current]
+      ? "✓ 本轮已完成，进入下一轮"
+      : "✓ 完成本轮并进入下一轮";
+
+    renderScore();
+    renderTimer();
+  }
+
+  function renderList(){
+    const list = $("roundList");
+    list.innerHTML = "";
+
+    matches.forEach((m,i)=>{
+      const btn = document.createElement("button");
+      btn.className = "round-item" +
+        (i===state.current ? " current" : "") +
+        (state.completed[i] ? " done" : "");
+
+      const s = state.scores[i];
+      btn.innerHTML = `
+        <span class="ri-num">第${i+1}轮</span>
+        <span class="ri-type">${m.type}</span>
+        <span class="ri-match">
+          ${m.left} vs ${m.right}
+          <span class="ri-score">${s.a} : ${s.b} · ${fmt(secondsFor(i))}</span>
+        </span>
+        <span class="ri-state">${state.completed[i] ? "✅" : (i===state.current ? "▶️" : "○")}</span>
+      `;
+      btn.addEventListener("click",()=>goTo(i));
+      list.appendChild(btn);
+    });
+  }
+
+  function render(){
+    renderCurrent();
+    renderList();
+  }
+
+  function openSheet(){
+    $("sheet").classList.add("show");
+    $("backdrop").classList.add("show");
+    $("sheet").setAttribute("aria-hidden","false");
+    renderList();
+  }
+
+  function closeSheet(){
+    $("sheet").classList.remove("show");
+    $("backdrop").classList.remove("show");
+    $("sheet").setAttribute("aria-hidden","true");
+  }
+
+  function buildCSV(){
+    commitRunningTime();
+    const rows = [["轮次","类型","对阵","比分","用时","状态"]];
+    matches.forEach((m,i)=>{
+      const s = state.scores[i];
+      rows.push([
+        i+1,
+        m.type,
+        `${m.left} vs ${m.right}`,
+        `${s.a}:${s.b}`,
+        fmt(secondsFor(i)),
+        state.completed[i] ? "已完成" : "未完成"
+      ]);
+    });
+
+    return "\uFEFF" + rows
+      .map(row=>row.map(v=>`"${String(v).replaceAll('"','""')}"`).join(","))
+      .join("\n");
+  }
+
+  function fallbackDownload(csv){
+    try{
+      const blob = new Blob([csv],{type:"text/csv;charset=utf-8"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "YJUN羽毛球比赛记录.csv";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1500);
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  async function copyCSV(showMessage=true){
+    const csv = buildCSV();
+    let copied = false;
+
+    try{
+      await navigator.clipboard.writeText(csv);
+      copied = true;
+    }catch(e){
+      const area = document.createElement("textarea");
+      area.value = csv;
+      area.setAttribute("readonly","");
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      area.setSelectionRange(0,area.value.length);
+      try{
+        copied = document.execCommand("copy");
+      }catch(err){}
+      area.remove();
+    }
+
+    if(showMessage){
+      showToast(copied ? "记录已复制，可粘贴到备忘录或微信" : "复制失败，请尝试系统分享");
+    }
+    return copied;
+  }
+
+  async function exportCSV(){
+    const csv = buildCSV();
+    const fileName = "YJUN羽毛球比赛记录.csv";
+    const file = new File([csv],fileName,{type:"text/csv;charset=utf-8"});
+
+    try{
+      if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+        await navigator.share({
+          title:"YJUN羽毛球比赛记录",
+          text:"羽毛球比赛轮次、比分及用时记录",
+          files:[file]
+        });
+        showToast("已打开系统分享");
+        return;
+      }
+
+      if(navigator.share){
+        await navigator.share({
+          title:"YJUN羽毛球比赛记录",
+          text:csv
+        });
+        showToast("已打开系统分享");
+        return;
+      }
+    }catch(e){
+      if(e && e.name === "AbortError"){
+        showToast("已取消分享");
+        return;
+      }
+    }
+
+    const downloaded = fallbackDownload(csv);
+    if(downloaded){
+      showToast("已尝试保存 CSV；若没有反应，请点“复制记录”");
+    }else{
+      await copyCSV();
+    }
+  }
+
+  function resetAll(){
+    if(confirm("确定清空全部轮次、比分和计时记录吗？")){
+      releaseWakeLock();
+      state = blankState();
+      save();
+      closeSheet();
+      render();
+      showToast("记录已清空");
+    }
+  }
+
+  document.querySelectorAll(".score-controls button").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      changeScore(btn.dataset.side,Number(btn.dataset.delta));
+    });
+  });
+
+  document.querySelectorAll(".score-presets button").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      setScore(btn.dataset.side,Number(btn.dataset.score));
+    });
+  });
+
+  $("startBtn").addEventListener("click",start);
+  $("pauseBtn").addEventListener("click",pause);
+  $("finishBtn").addEventListener("click",finish);
+  $("prevBtn").addEventListener("click",()=>goTo(state.current-1));
+  $("nextBtn").addEventListener("click",()=>goTo(state.current+1));
+  $("listBtn").addEventListener("click",openSheet);
+  $("backdrop").addEventListener("click",closeSheet);
+  $("exportBtn").addEventListener("click",exportCSV);
+  $("copyBtn").addEventListener("click",()=>copyCSV());
+  $("resetBtn").addEventListener("click",resetAll);
+
+  $("helpBtn").addEventListener("click",()=>$("help").classList.add("show"));
+  $("closeHelpBtn").addEventListener("click",()=>{
+    $("help").classList.remove("show");
+    localStorage.setItem("yjun_help_seen","1");
+  });
+
+  const swipeArea = $("swipeArea");
+  swipeArea.addEventListener("touchstart",e=>{
+    touchStartX = e.changedTouches[0].clientX;
+  },{passive:true});
+
+  swipeArea.addEventListener("touchend",e=>{
+    if(touchStartX === null) return;
+    const diff = e.changedTouches[0].clientX - touchStartX;
+    touchStartX = null;
+    if(Math.abs(diff) < 65) return;
+    if(diff < 0) goTo(state.current+1);
+    else goTo(state.current-1);
+  },{passive:true});
+
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState === "visible" && state.running){
+      requestWakeLock();
+    }
+  });
+
+  window.addEventListener("beforeunload",()=>{
+    if(state.running && state.startedAt){
+      state.elapsed[state.current] += (Date.now()-state.startedAt)/1000;
+      state.startedAt = Date.now();
+      save();
+    }
+  });
+
+  timerHandle = setInterval(()=>{
+    if(state.running){
+      renderTimer();
+      if($("sheet").classList.contains("show")) renderList();
+    }
+  },1000);
+
+  render();
+
+  if(!localStorage.getItem("yjun_help_seen")){
+    setTimeout(()=>$("help").classList.add("show"),350);
+  }
+</script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    });
+  }
+</script>
+
+</body>
+</html>
