@@ -1,16 +1,21 @@
-const CACHE_NAME = "yjun-badminton-v3";
-const ASSETS = [
-  "./",
+const CACHE_NAME = "yjun-badminton-v4";
+const OFFLINE_ASSETS = [
   "./index.html",
   "./manifest.webmanifest",
   "./icon-180.png",
   "./icon-512.png"
 ];
 
+self.addEventListener("message", event => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("install", event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(ASSETS))
+      .then(cache => cache.addAll(OFFLINE_ASSETS))
       .then(() => self.skipWaiting())
   );
 });
@@ -19,7 +24,9 @@ self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
-        keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
+        keys
+          .filter(key => key !== CACHE_NAME)
+          .map(key => caches.delete(key))
       ))
       .then(() => self.clients.claim())
   );
@@ -28,13 +35,17 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
 
-  // 页面导航优先联网获取最新版；断网时回退到缓存。
+  // HTML navigation always checks the network first and bypasses HTTP cache.
+  // Cached index.html is only used when the device is offline.
   if (event.request.mode === "navigate") {
     event.respondWith(
-      fetch(event.request)
+      fetch(event.request, { cache: "no-store" })
         .then(response => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put("./index.html", copy));
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME)
+              .then(cache => cache.put("./index.html", copy));
+          }
           return response;
         })
         .catch(() => caches.match("./index.html"))
@@ -42,14 +53,20 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  // 图标和配置等静态资源优先使用缓存。
+  // Static assets: serve cache immediately, then refresh it in the background.
   event.respondWith(
     caches.match(event.request).then(cached => {
-      return cached || fetch(event.request).then(response => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-        return response;
-      });
+      const network = fetch(event.request, { cache: "no-cache" })
+        .then(response => {
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME)
+              .then(cache => cache.put(event.request, copy));
+          }
+          return response;
+        });
+
+      return cached || network;
     })
   );
 });
