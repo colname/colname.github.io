@@ -1,4 +1,4 @@
-const CACHE_NAME = "yjun-badminton-v2";
+const CACHE_NAME = "yjun-badminton-v3";
 const ASSETS = [
   "./",
   "./index.html",

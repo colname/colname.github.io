@@ -81,7 +81,7 @@
     .topbar{
       display:flex;
       align-items:center;
-      justify-content:space-between;
+      justify-content:center;
       gap:10px;
       min-height:42px;
     }
@@ -705,7 +705,6 @@
   <main class="app">
     <header class="topbar">
       <div class="brand">🏸 YJUN羽毛球记录小工具</div>
-      <button class="icon-btn" id="helpBtn" aria-label="使用帮助">?</button>
     </header>
 
     <section class="progress-wrap">
@@ -783,7 +782,7 @@
     <div class="sheet-head">
       <h2>比赛记录与排名</h2>
       <div class="sheet-actions">
-        <button class="small-btn" id="exportBtn">分享记录</button>
+        <button class="small-btn" id="exportBtn">分享图片</button>
         <button class="small-btn" id="copyBtn">复制记录</button>
         <button class="small-btn danger" id="resetBtn">清空</button>
       </div>
@@ -808,21 +807,6 @@
     <div class="section-label">全部轮次</div>
     <div class="round-list" id="roundList"></div>
   </section>
-
-  <div class="help" id="help">
-    <div class="help-card">
-      <h2>在 iPhone 上这样用最方便</h2>
-      <div class="tip">
-        <p><strong>说明：</strong>从 ChatGPT 或“文件”App 点开的本地 HTML，通常处于文件预览界面，不一定会出现“用 Safari 打开”。“添加到主屏幕”需要页面本身在浏览器中打开。</p>
-      </div>
-      <p>点击“开始本轮”计时；比分可用＋/−调整，也可一键设为 10、15、18 或 21 分；比赛结束点击“完成本轮”，会自动进入下一轮。</p>
-      <p>“分享记录”会优先调起 iPhone 系统分享页；若当前预览环境不支持文件分享，可使用“复制记录”后粘贴到备忘录、微信或表格。</p>
-      <p>在比赛卡片上左右滑动，也可以快速切换轮次。点击“轮次与排名”可实时查看个人榜单；每场获胜方两名队员各记 1 胜，净胜分为本方得分减对方得分。</p>
-      <p>排名先比较胜场，胜场相同再比较净胜分。全部比赛结束后会自动打开最终排名。所有记录都会自动保存在当前打开环境中。</p>
-      <button id="closeHelpBtn">知道了</button>
-    </div>
-  </div>
-
   <div class="toast" id="toast"></div>
 
 <script>
@@ -1335,6 +1319,211 @@
     }
   }
 
+
+  function roundRect(ctx,x,y,w,h,r,fill,stroke){
+    const radius = Math.min(r,w/2,h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+radius,y);
+    ctx.arcTo(x+w,y,x+w,y+h,radius);
+    ctx.arcTo(x+w,y+h,x,y+h,radius);
+    ctx.arcTo(x,y+h,x,y,radius);
+    ctx.arcTo(x,y,x+w,y,radius);
+    ctx.closePath();
+    if(fill){
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+    if(stroke){
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  function drawText(ctx,text,x,y,options={}){
+    const {
+      font='500 28px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',
+      color='#f8fafc',
+      align='left',
+      baseline='middle'
+    } = options;
+    ctx.font = font;
+    ctx.fillStyle = color;
+    ctx.textAlign = align;
+    ctx.textBaseline = baseline;
+    ctx.fillText(String(text),x,y);
+  }
+
+  function createResultCanvas(){
+    const width = 1242;
+    const rowH = 76;
+    const rankingTop = 220;
+    const rankingHeaderH = 62;
+    const rankingRowsH = PLAYERS.length * rowH;
+    const matchTitleY = rankingTop + rankingHeaderH + rankingRowsH + 82;
+    const matchHeaderY = matchTitleY + 68;
+    const height = matchHeaderY + 62 + matches.length * rowH + 90;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    const gradient = ctx.createLinearGradient(0,0,0,height);
+    gradient.addColorStop(0,'#07111f');
+    gradient.addColorStop(1,'#0a1829');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0,0,width,height);
+
+    // 标题区
+    drawText(ctx,'🏸 YJUN羽毛球比赛记录',62,72,{
+      font:'800 50px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif'
+    });
+    const doneCount = state.completed.filter(Boolean).length;
+    const {ranking,validMatches} = calculateRanking();
+    drawText(ctx,`已完成 ${doneCount}/${matches.length} 场 · ${validMatches} 场有效结果`,62,132,{
+      font:'500 28px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',
+      color:'#94a3b8'
+    });
+    drawText(ctx,new Date().toLocaleString('zh-CN',{hour12:false}),1180,132,{
+      font:'500 24px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',
+      color:'#64748b',
+      align:'right'
+    });
+
+    // 排名卡片
+    roundRect(ctx,42,178,width-84,rankingHeaderH+rankingRowsH+32,26,'#0d1b2d','#2b5c82');
+    drawText(ctx,'🏆 个人排名',70,rankingTop-10,{
+      font:'800 36px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif'
+    });
+
+    const cols = [88,260,670,820,965,1135];
+    const headers = ['名次','队员','场次','胜','负','净胜分'];
+    ctx.fillStyle = '#12243a';
+    ctx.fillRect(58,rankingTop+18,width-116,rankingHeaderH);
+    headers.forEach((h,i)=>{
+      drawText(ctx,h,cols[i],rankingTop+49,{
+        font:'700 25px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',
+        color:'#bae6fd',
+        align:i===1?'left':'center'
+      });
+    });
+
+    ranking.forEach((p,index)=>{
+      const y = rankingTop + rankingHeaderH + 18 + index*rowH;
+      if(index % 2 === 0){
+        ctx.fillStyle = 'rgba(30,58,95,.42)';
+        ctx.fillRect(58,y,width-116,rowH);
+      }
+      const rankText = validMatches === 0 ? '—' :
+        p.rank === 1 ? '🥇' :
+        p.rank === 2 ? '🥈' :
+        p.rank === 3 ? '🥉' : p.rank;
+      drawText(ctx,rankText,cols[0],y+rowH/2,{font:'800 29px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',align:'center'});
+      drawText(ctx,p.name,cols[1],y+rowH/2,{font:'750 29px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif'});
+      drawText(ctx,p.played,cols[2],y+rowH/2,{font:'650 27px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',align:'center'});
+      drawText(ctx,p.wins,cols[3],y+rowH/2,{font:'750 29px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',color:'#86efac',align:'center'});
+      drawText(ctx,p.losses,cols[4],y+rowH/2,{font:'650 27px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',color:'#fca5a5',align:'center'});
+      const netText = p.net > 0 ? `+${p.net}` : p.net;
+      drawText(ctx,netText,cols[5],y+rowH/2,{
+        font:'800 29px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',
+        color:p.net>0?'#86efac':p.net<0?'#fca5a5':'#e2e8f0',
+        align:'center'
+      });
+    });
+
+    // 全部赛果
+    drawText(ctx,'全部赛果',62,matchTitleY,{
+      font:'800 38px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif'
+    });
+    roundRect(ctx,42,matchTitleY+38,width-84,62+matches.length*rowH+28,26,'#0d1b2d','#24415f');
+
+    const matchCols = [94,204,690,1030,1160];
+    const matchHeaders = ['轮次','类型','对阵','比分','状态'];
+    ctx.fillStyle = '#12243a';
+    ctx.fillRect(58,matchHeaderY,width-116,62);
+    matchHeaders.forEach((h,i)=>{
+      drawText(ctx,h,matchCols[i],matchHeaderY+31,{
+        font:'700 25px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',
+        color:'#bae6fd',
+        align:i===2?'center':'center'
+      });
+    });
+
+    matches.forEach((m,i)=>{
+      const y = matchHeaderY + 62 + i*rowH;
+      if(i % 2 === 0){
+        ctx.fillStyle = 'rgba(30,58,95,.35)';
+        ctx.fillRect(58,y,width-116,rowH);
+      }
+      const s = state.scores[i];
+      drawText(ctx,i+1,matchCols[0],y+rowH/2,{font:'700 26px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',align:'center'});
+      drawText(ctx,m.type,matchCols[1],y+rowH/2,{font:'650 25px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',align:'center'});
+      drawText(ctx,`${m.left}  vs  ${m.right}`,matchCols[2],y+rowH/2,{
+        font:'650 25px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',
+        align:'center'
+      });
+      drawText(ctx,`${s.a} : ${s.b}`,matchCols[3],y+rowH/2,{
+        font:'800 28px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',
+        color:state.completed[i]?'#fde68a':'#94a3b8',
+        align:'center'
+      });
+      drawText(ctx,state.completed[i]?'已完成':'未完成',matchCols[4],y+rowH/2,{
+        font:'650 23px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',
+        color:state.completed[i]?'#86efac':'#94a3b8',
+        align:'center'
+      });
+    });
+
+    drawText(ctx,'排名规则：胜场优先；胜场相同按净胜分排序。',width/2,height-42,{
+      font:'500 23px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',
+      color:'#64748b',
+      align:'center'
+    });
+
+    return canvas;
+  }
+
+  async function shareResultImage(){
+    showToast("正在生成比赛图片…");
+    const canvas = createResultCanvas();
+    const blob = await new Promise(resolve=>canvas.toBlob(resolve,'image/png',1));
+    if(!blob){
+      showToast("图片生成失败");
+      return;
+    }
+
+    const file = new File([blob],'YJUN羽毛球比赛记录.png',{type:'image/png'});
+
+    try{
+      if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+        await navigator.share({
+          title:'YJUN羽毛球比赛记录',
+          text:'比赛结果与个人排名',
+          files:[file]
+        });
+        showToast("已打开系统分享");
+        return;
+      }
+    }catch(e){
+      if(e && e.name === 'AbortError'){
+        showToast("已取消分享");
+        return;
+      }
+    }
+
+    // 不支持文件分享时，保存/打开图片作为回退。
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'YJUN羽毛球比赛记录.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),3000);
+    showToast("已生成 PNG 图片");
+  }
+
   function resetAll(){
     if(confirm("确定清空全部轮次、比分和计时记录吗？")){
       releaseWakeLock();
@@ -1365,15 +1554,9 @@
   $("nextBtn").addEventListener("click",()=>goTo(state.current+1));
   $("listBtn").addEventListener("click",openSheet);
   $("backdrop").addEventListener("click",closeSheet);
-  $("exportBtn").addEventListener("click",exportCSV);
+  $("exportBtn").addEventListener("click",shareResultImage);
   $("copyBtn").addEventListener("click",()=>copyCSV());
   $("resetBtn").addEventListener("click",resetAll);
-
-  $("helpBtn").addEventListener("click",()=>$("help").classList.add("show"));
-  $("closeHelpBtn").addEventListener("click",()=>{
-    $("help").classList.remove("show");
-    localStorage.setItem("yjun_help_seen","1");
-  });
 
   const swipeArea = $("swipeArea");
   swipeArea.addEventListener("touchstart",e=>{
@@ -1411,16 +1594,12 @@
   },1000);
 
   render();
-
-  if(!localStorage.getItem("yjun_help_seen")){
-    setTimeout(()=>$("help").classList.add("show"),350);
-  }
 </script>
 
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=2").catch(() => {});
+      navigator.serviceWorker.register("./sw.js?v=3").catch(() => {});
     });
   }
 </script>
