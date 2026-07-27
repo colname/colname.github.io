@@ -442,6 +442,115 @@
       background:#7f1d1d;
     }
 
+    .ranking-card{
+      background:linear-gradient(145deg,rgba(14,165,233,.10),rgba(34,197,94,.06));
+      border:1px solid #31577a;
+      border-radius:17px;
+      padding:12px;
+      margin-bottom:10px;
+      flex:0 0 auto;
+    }
+
+    .ranking-title{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:9px;
+    }
+
+    .ranking-title strong{
+      font-size:15px;
+    }
+
+    .ranking-title span{
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .ranking-head,
+    .ranking-row{
+      display:grid;
+      grid-template-columns:34px minmax(78px,1fr) 42px 42px 56px;
+      gap:6px;
+      align-items:center;
+    }
+
+    .ranking-head{
+      color:#94a3b8;
+      font-size:11px;
+      padding:0 7px 5px;
+      text-align:center;
+    }
+
+    .ranking-head span:nth-child(2){
+      text-align:left;
+    }
+
+    .ranking-row{
+      min-height:38px;
+      padding:7px;
+      border-radius:11px;
+      background:rgba(8,20,33,.78);
+      border:1px solid rgba(49,87,122,.55);
+      font-size:13px;
+      text-align:center;
+      margin-top:5px;
+    }
+
+    .ranking-row.top-one{
+      background:linear-gradient(90deg,rgba(180,83,9,.36),rgba(8,20,33,.82));
+      border-color:#a16207;
+    }
+
+    .ranking-rank{
+      font-size:15px;
+      font-weight:950;
+    }
+
+    .ranking-name{
+      min-width:0;
+      text-align:left;
+      font-weight:900;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .ranking-wins{
+      color:#86efac;
+      font-weight:900;
+    }
+
+    .ranking-losses{
+      color:#fca5a5;
+      font-weight:800;
+    }
+
+    .ranking-net{
+      font-weight:900;
+      font-variant-numeric:tabular-nums;
+    }
+
+    .ranking-net.positive{color:#7dd3fc}
+    .ranking-net.negative{color:#fda4af}
+
+    .ranking-note{
+      color:#94a3b8;
+      font-size:11px;
+      line-height:1.45;
+      margin-top:8px;
+      text-align:center;
+    }
+
+    .section-label{
+      color:#cbd5e1;
+      font-size:13px;
+      font-weight:850;
+      padding:1px 2px 8px;
+      flex:0 0 auto;
+    }
+
     .round-list{
       overflow:auto;
       overscroll-behavior:contain;
@@ -662,7 +771,7 @@
 
     <nav class="bottom-nav">
       <button class="nav-btn" id="prevBtn">← 上一轮</button>
-      <button class="nav-btn list-btn" id="listBtn">☰ 全部轮次</button>
+      <button class="nav-btn list-btn" id="listBtn">☰ 轮次与排名</button>
       <button class="nav-btn" id="nextBtn">下一轮 →</button>
     </nav>
   </main>
@@ -672,13 +781,31 @@
   <section class="sheet" id="sheet" aria-hidden="true">
     <div class="grabber"></div>
     <div class="sheet-head">
-      <h2>全部轮次</h2>
+      <h2>比赛记录与排名</h2>
       <div class="sheet-actions">
         <button class="small-btn" id="exportBtn">分享记录</button>
         <button class="small-btn" id="copyBtn">复制记录</button>
         <button class="small-btn danger" id="resetBtn">清空</button>
       </div>
     </div>
+
+    <div class="ranking-card">
+      <div class="ranking-title">
+        <strong>🏆 实时个人排名</strong>
+        <span id="rankingStatus">0 场有效结果</span>
+      </div>
+      <div class="ranking-head">
+        <span>名次</span>
+        <span>队员</span>
+        <span>胜</span>
+        <span>负</span>
+        <span>净胜分</span>
+      </div>
+      <div id="rankingList"></div>
+      <div class="ranking-note">排序规则：胜场优先；胜场相同按净胜分排序。比分相同的场次不计入排名。</div>
+    </div>
+
+    <div class="section-label">全部轮次</div>
     <div class="round-list" id="roundList"></div>
   </section>
 
@@ -690,7 +817,8 @@
       </div>
       <p>点击“开始本轮”计时；比分可用＋/−调整，也可一键设为 10、15、18 或 21 分；比赛结束点击“完成本轮”，会自动进入下一轮。</p>
       <p>“分享记录”会优先调起 iPhone 系统分享页；若当前预览环境不支持文件分享，可使用“复制记录”后粘贴到备忘录、微信或表格。</p>
-      <p>在比赛卡片上左右滑动，也可以快速切换轮次。所有记录都会自动保存在当前打开环境中。</p>
+      <p>在比赛卡片上左右滑动，也可以快速切换轮次。点击“轮次与排名”可实时查看个人榜单；每场获胜方两名队员各记 1 胜，净胜分为本方得分减对方得分。</p>
+      <p>排名先比较胜场，胜场相同再比较净胜分。全部比赛结束后会自动打开最终排名。所有记录都会自动保存在当前打开环境中。</p>
       <button id="closeHelpBtn">知道了</button>
     </div>
   </div>
@@ -714,6 +842,8 @@
     {type:"混双", left:"YJUN＋YBY", right:"OTT＋ZY"},
     {type:"混双", left:"OTT＋YBY", right:"WZY＋ZY"}
   ];
+
+  const PLAYERS = ["YJUN","OTT","WZY","Forest","WY","ZY","YBY"];
 
   const STORAGE_KEY = "yjun_badminton_iphone_v1";
 
@@ -833,9 +963,18 @@
   }
 
   function finish(){
+    const currentScore = state.scores[state.current];
+    if(Number(currentScore.a) === Number(currentScore.b)){
+      showToast("比分相同，无法判定胜负");
+      vibrate([30,40,30]);
+      return;
+    }
+
     pause();
     state.completed[state.current] = true;
     const next = state.completed.findIndex((done,i)=>!done && i>state.current);
+    let allFinished = false;
+
     if(next !== -1){
       state.current = next;
       showToast("已完成，进入下一轮");
@@ -845,12 +984,18 @@
         state.current = remaining;
         showToast("已跳转到未完成轮次");
       }else{
-        showToast("全部比赛已完成");
+        allFinished = true;
+        showToast("全部比赛已完成，最终排名已生成");
       }
     }
+
     save();
     vibrate([25,35,25]);
     render();
+
+    if(allFinished){
+      setTimeout(openSheet,300);
+    }
   }
 
   function changeScore(side,delta){
@@ -860,6 +1005,7 @@
     vibrate(8);
     renderScore();
     renderList();
+    renderRanking();
   }
 
   function setScore(side,value){
@@ -869,7 +1015,121 @@
     vibrate(12);
     renderScore();
     renderList();
+    renderRanking();
     showToast(`已设为 ${value} 分`);
+  }
+
+  function splitTeam(team){
+    return team.split("＋").map(name=>name.trim()).filter(Boolean);
+  }
+
+  function calculateRanking(){
+    const stats = Object.fromEntries(
+      PLAYERS.map(name=>[name,{
+        name,
+        played:0,
+        wins:0,
+        losses:0,
+        pointsFor:0,
+        pointsAgainst:0,
+        net:0,
+        rank:null
+      }])
+    );
+
+    let validMatches = 0;
+
+    matches.forEach((m,i)=>{
+      if(!state.completed[i]) return;
+
+      const a = Number(state.scores[i]?.a ?? 0);
+      const b = Number(state.scores[i]?.b ?? 0);
+      if(a === b) return;
+
+      validMatches += 1;
+      const leftPlayers = splitTeam(m.left);
+      const rightPlayers = splitTeam(m.right);
+      const leftWon = a > b;
+
+      leftPlayers.forEach(name=>{
+        const p = stats[name];
+        if(!p) return;
+        p.played += 1;
+        p.pointsFor += a;
+        p.pointsAgainst += b;
+        if(leftWon) p.wins += 1;
+        else p.losses += 1;
+      });
+
+      rightPlayers.forEach(name=>{
+        const p = stats[name];
+        if(!p) return;
+        p.played += 1;
+        p.pointsFor += b;
+        p.pointsAgainst += a;
+        if(leftWon) p.losses += 1;
+        else p.wins += 1;
+      });
+    });
+
+    const ranking = Object.values(stats).map(p=>({
+      ...p,
+      net:p.pointsFor-p.pointsAgainst
+    }));
+
+    ranking.sort((x,y)=>
+      (y.wins-x.wins) ||
+      (y.net-x.net) ||
+      (PLAYERS.indexOf(x.name)-PLAYERS.indexOf(y.name))
+    );
+
+    if(validMatches > 0){
+      ranking.forEach((p,index)=>{
+        if(
+          index > 0 &&
+          p.wins === ranking[index-1].wins &&
+          p.net === ranking[index-1].net
+        ){
+          p.rank = ranking[index-1].rank;
+        }else{
+          p.rank = index+1;
+        }
+      });
+    }
+
+    return {ranking,validMatches};
+  }
+
+  function renderRanking(){
+    const {ranking,validMatches} = calculateRanking();
+    const list = $("rankingList");
+    $("rankingStatus").textContent = `${validMatches} 场有效结果`;
+    list.innerHTML = "";
+
+    ranking.forEach(p=>{
+      const row = document.createElement("div");
+      row.className = "ranking-row" + (p.rank === 1 && validMatches > 0 ? " top-one" : "");
+
+      let rankText = "—";
+      if(validMatches > 0){
+        rankText = p.rank === 1 ? "🥇" :
+          p.rank === 2 ? "🥈" :
+          p.rank === 3 ? "🥉" :
+          String(p.rank);
+      }
+
+      const netText = p.net > 0 ? `+${p.net}` : String(p.net);
+      const netClass = p.net > 0 ? "positive" : (p.net < 0 ? "negative" : "");
+
+      row.innerHTML = `
+        <span class="ranking-rank">${rankText}</span>
+        <span class="ranking-name">${p.name}</span>
+        <span class="ranking-wins">${p.wins}</span>
+        <span class="ranking-losses">${p.losses}</span>
+        <span class="ranking-net ${netClass}">${netText}</span>
+      `;
+      list.appendChild(row);
+    });
   }
 
   function renderScore(){
@@ -938,12 +1198,14 @@
   function render(){
     renderCurrent();
     renderList();
+    renderRanking();
   }
 
   function openSheet(){
     $("sheet").classList.add("show");
     $("backdrop").classList.add("show");
     $("sheet").setAttribute("aria-hidden","false");
+    renderRanking();
     renderList();
   }
 
@@ -965,6 +1227,21 @@
         `${s.a}:${s.b}`,
         fmt(secondsFor(i)),
         state.completed[i] ? "已完成" : "未完成"
+      ]);
+    });
+
+    const {ranking,validMatches} = calculateRanking();
+    rows.push([]);
+    rows.push(["最终个人排名","","","","",""]);
+    rows.push(["排名","队员","有效场次","胜场","负场","净胜分"]);
+    ranking.forEach(p=>{
+      rows.push([
+        validMatches > 0 ? p.rank : "",
+        p.name,
+        p.played,
+        p.wins,
+        p.losses,
+        p.net > 0 ? `+${p.net}` : p.net
       ]);
     });
 
@@ -1143,7 +1420,7 @@
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js").catch(() => {});
+      navigator.serviceWorker.register("./sw.js?v=2").catch(() => {});
     });
   }
 </script>
