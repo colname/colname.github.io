@@ -21,6 +21,15 @@ export function createPlayers(maleNames, femaleNames) {
   ];
 }
 
+export function createSinglesPlayers(names) {
+  return names.map((name, index) => ({
+    id: makeId("player"),
+    name: name.trim(),
+    gender: "unspecified",
+    order: index
+  }));
+}
+
 export function createSession({ name, players, scheduleResult }) {
   const now = new Date().toISOString();
   return {
@@ -37,6 +46,7 @@ export function createSession({ name, players, scheduleResult }) {
       maxPoints: 30
     },
     scheduleConfig: {
+      mode: scheduleResult.plan.mode || "doubles",
       requestedGames: scheduleResult.plan.matchCount,
       matchCount: scheduleResult.plan.matchCount,
       targetAppearances: scheduleResult.plan.targetAppearances,
@@ -65,7 +75,7 @@ export function teamName(session, team) {
 }
 
 export function matchTypeLabel(type) {
-  return { mens: "男双", womens: "女双", mixed: "混双" }[type] || type;
+  return { mens: "男双", womens: "女双", mixed: "混双", singles: "单打" }[type] || type;
 }
 
 export function validFinalScore(score, rule) {

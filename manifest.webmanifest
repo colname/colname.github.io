@@ -1,7 +1,7 @@
 {
   "name": "YJUN羽毛球管理工具",
   "short_name": "YJUN羽毛球",
-  "description": "公平排赛、21分计分、排名、历史与比赛记录分享",
+  "description": "双打公平排赛、四人单打轮转、21分计分、排名、历史与比赛记录分享",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

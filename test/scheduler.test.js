@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { generateSchedule, resolveSchedulePlan, validateSchedule } from "../src/scheduler.js";
+import { generateSchedule, generateSinglesSchedule, resolveSchedulePlan, validateSchedule } from "../src/scheduler.js";
 
 function roster(males, females) {
   return [
@@ -70,4 +70,37 @@ test("所有已支持的男女组合都能生成通过内部校验的赛程", ()
     assert.equal(validation.valid, true, validation.errors.join("；"));
     assert.equal(result.quality.appearanceRange, 0);
   });
+});
+
+test("4人单打生成6场单循环，每人3场且每组只交手一次", () => {
+  const players = roster(4, 0).map((player, index) => ({
+    ...player,
+    id: `s${index + 1}`,
+    name: `S${index + 1}`,
+    gender: "unspecified"
+  }));
+  const result = generateSinglesSchedule(players, "singles-test");
+  assert.equal(result.plan.matchCount, 6);
+  assert.equal(result.plan.targetAppearances, 3);
+  assert.equal(validateSchedule(result.matches, players, result.plan).valid, true);
+
+  const appearances = Object.fromEntries(players.map(player => [player.id, 0]));
+  const pairs = new Set();
+  result.matches.forEach(match => {
+    const [left, right] = match.teams.flat();
+    appearances[left] += 1;
+    appearances[right] += 1;
+    pairs.add([left, right].sort().join("|"));
+  });
+  assert.deepEqual(Object.values(appearances), [3, 3, 3, 3]);
+  assert.equal(pairs.size, 6);
+  assert.equal(result.quality.maxStreak, 2);
+  assert.equal(result.quality.tripleStreaks, 0);
+});
+
+test("单打拒绝非4人和重复姓名", () => {
+  assert.throws(() => generateSinglesSchedule(roster(3, 0)), /正好输入4名/);
+  const players = roster(4, 0);
+  players[1].name = players[0].name;
+  assert.throws(() => generateSinglesSchedule(players), /姓名不能重复/);
 });

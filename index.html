@@ -11,7 +11,7 @@
   <title>YJUN羽毛球管理工具</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icon-180.png">
-  <link rel="stylesheet" href="./assets/app.css">
+  <link rel="stylesheet" href="./assets/app.css?v=7">
 </head>
 <body>
   <main class="app">
@@ -20,20 +20,24 @@
         <div class="brand">🏸 YJUN羽毛球</div>
         <div class="subtitle" id="sessionSubtitle">排赛、计分与排名</div>
       </div>
-      <button class="icon-btn" id="newSessionBtn" title="新建活动">＋</button>
     </header>
 
     <section class="view active" id="setupView">
       <div class="hero">
         <span class="eyebrow">一个场地 · 每场四人</span>
-        <h1>生成公平赛程</h1>
-        <p>先保证每人场次完全一致，再依次优化搭档、对手和连续出场。</p>
+        <h1 id="setupTitle">生成双打赛程</h1>
+        <p id="setupDescription">先保证每人场次完全一致，再依次优化搭档、对手和连续出场。</p>
       </div>
 
-      <form class="panel form-panel" id="scheduleForm">
+      <div class="mode-switch" role="tablist" aria-label="选择比赛模式">
+        <button type="button" class="active" id="doublesModeBtn">双打</button>
+        <button type="button" id="singlesModeBtn">单打</button>
+      </div>
+
+      <form class="panel form-panel" id="doublesScheduleForm">
         <label>
           <span>活动名称</span>
-          <input id="sessionName" maxlength="40" placeholder="例如：周末羽毛球">
+          <input id="doublesSessionName" maxlength="40" placeholder="例如：周末双打">
         </label>
         <label>
           <span>男生姓名</span>
@@ -55,7 +59,23 @@
             <option value="21">21 场</option>
           </select>
         </label>
-        <button class="primary-btn" type="submit" id="generateBtn">生成公平赛程</button>
+        <button class="primary-btn" type="submit" id="generateDoublesBtn">生成双打赛程</button>
+      </form>
+
+      <form class="panel form-panel hidden" id="singlesScheduleForm">
+        <label>
+          <span>活动名称</span>
+          <input id="singlesSessionName" maxlength="40" placeholder="例如：四人单打轮转">
+        </label>
+        <label>
+          <span>4名队员</span>
+          <textarea id="singlesPlayers" rows="4" placeholder="空格、逗号或换行分隔，必须正好4人"></textarea>
+        </label>
+        <div class="singles-rule">
+          <strong>4人单循环 · 6场</strong>
+          <span>每人3场，每两人交手一次，自动减少连续出场。</span>
+        </div>
+        <button class="primary-btn" type="submit" id="generateSinglesBtn">生成单打轮转</button>
       </form>
 
       <section id="schedulePreview" class="hidden"></section>
@@ -173,6 +193,6 @@
   </nav>
 
   <div class="toast" id="toast"></div>
-  <script type="module" src="./src/app.js"></script>
+  <script type="module" src="./src/app.js?v=7"></script>
 </body>
 </html>
