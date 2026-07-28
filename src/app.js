@@ -1,8 +1,8 @@
-import { createPlayers, createSession, formatDuration, matchTypeLabel, playerMap, teamName, validFinalScore } from "./model.js";
-import { generateSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js";
-import { activeSession, loadStore, removeSession, saveStore, setActiveSession, upsertSession } from "./storage.js";
-import { calculateRanking } from "./ranking.js";
-import { copySessionCSV, shareResultImage } from "./export.js";
+import { createPlayers, createSession, createSinglesPlayers, formatDuration, matchTypeLabel, playerMap, teamName, validFinalScore } from "./model.js?v=7";
+import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js?v=7";
+import { activeSession, loadStore, removeSession, saveStore, setActiveSession, upsertSession } from "./storage.js?v=7";
+import { calculateRanking } from "./ranking.js?v=7";
+import { copySessionCSV, shareResultImage } from "./export.js?v=7";
 
 const $ = id => document.getElementById(id);
 const store = loadStore();
@@ -10,6 +10,7 @@ let preview = null;
 let toastTimer = null;
 let wakeLock = null;
 let touchStartX = null;
+let setupMode = "doubles";
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -87,6 +88,20 @@ function switchView(viewName) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function switchSetupMode(mode) {
+  setupMode = mode;
+  preview = null;
+  $("doublesModeBtn").classList.toggle("active", mode === "doubles");
+  $("singlesModeBtn").classList.toggle("active", mode === "singles");
+  $("doublesScheduleForm").classList.toggle("hidden", mode !== "doubles");
+  $("singlesScheduleForm").classList.toggle("hidden", mode !== "singles");
+  $("setupTitle").textContent = mode === "doubles" ? "生成双打赛程" : "生成单打轮转";
+  $("setupDescription").textContent = mode === "doubles"
+    ? "先保证每人场次完全一致，再依次优化搭档、对手和连续出场。"
+    : "4人单循环，每两人交手一次，每人3场，并减少连续出场。";
+  renderPreview();
+}
+
 function buildMetric(label, value) {
   const card = element("div", "metric");
   card.append(element("strong", "", value), element("span", "", label));
@@ -110,10 +125,13 @@ function renderPreview() {
   panel.append(heading);
 
   const summary = element("div", "summary-grid");
+  const singles = preview.result.plan.mode === "singles";
   summary.append(
     buildMetric("比赛场数", `${preview.result.plan.matchCount} 场`),
     buildMetric("每人场数", `${preview.result.plan.targetAppearances} 场`),
-    buildMetric("最多搭档次数", `${preview.result.quality.partnerMax} 次`),
+    singles
+      ? buildMetric("每组交手", `${preview.result.quality.opponentMax} 次`)
+      : buildMetric("最多搭档次数", `${preview.result.quality.partnerMax} 次`),
     buildMetric("最长连续出场", `${preview.result.quality.maxStreak} 场`)
   );
   panel.append(summary);
@@ -122,7 +140,9 @@ function renderPreview() {
     .filter(([, count]) => count > 0)
     .map(([type, count]) => `${MATCH_TYPE_LABELS[type]} ${count} 场`)
     .join("＋");
-  panel.append(element("p", "note", `比赛配额：${quotaText}；随机种子：${preview.result.seed}`));
+  panel.append(element("p", "note", singles
+    ? `轮转规则：${quotaText}，每两人交手一次。`
+    : `比赛配额：${quotaText}；随机种子：${preview.result.seed}`));
 
   preview.result.matches.forEach(match => {
     const row = element("div", "preview-match");
@@ -137,7 +157,7 @@ function renderPreview() {
   confirm.type = "button";
   confirm.addEventListener("click", () => {
     const session = createSession({
-      name: $("sessionName").value,
+      name: preview.name,
       players: preview.players,
       scheduleResult: preview.result
     });
@@ -211,13 +231,22 @@ function renderQuality(session) {
     return;
   }
   const list = element("div", "quality-list");
-  const items = [
-    ["出场次数差", `${quality.appearanceRange}（必须为0）`],
-    ["每人目标场次", `${quality.targetAppearances} 场`],
-    ["最多搭档次数", `${quality.partnerMax} 次`],
-    ["最多对手次数", `${quality.opponentMax} 次`],
-    ["最长连续出场", `${quality.maxStreak} 场`]
-  ];
+  const singles = session.scheduleConfig.mode === "singles" ||
+    session.scheduleConfig.allowedTypes?.includes("singles");
+  const items = singles
+    ? [
+        ["比赛模式", "4人单打单循环"],
+        ["每人场次", `${quality.targetAppearances} 场`],
+        ["每组交手", `${quality.opponentMax} 次`],
+        ["最长连续出场", `${quality.maxStreak} 场`]
+      ]
+    : [
+        ["出场次数差", `${quality.appearanceRange}（必须为0）`],
+        ["每人目标场次", `${quality.targetAppearances} 场`],
+        ["最多搭档次数", `${quality.partnerMax} 次`],
+        ["最多对手次数", `${quality.opponentMax} 次`],
+        ["最长连续出场", `${quality.maxStreak} 场`]
+      ];
   items.forEach(([label, value]) => {
     const row = element("div");
     row.append(element("span", "", label), element("strong", "", value));
@@ -272,10 +301,12 @@ function renderHistory() {
     .forEach(session => {
       const card = element("section", "panel history-card");
       const done = session.matches.filter(match => match.status === "completed").length;
+      const modeLabel = session.scheduleConfig.mode === "singles" ||
+        session.scheduleConfig.allowedTypes?.includes("singles") ? "单打" : "双打";
       card.append(
         element("h2", "", session.name),
         element("div", "history-meta",
-          `${new Date(session.updatedAt).toLocaleString("zh-CN", { hour12: false })} · ${session.players.length}人 · ${done}/${session.matches.length}场`)
+          `${new Date(session.updatedAt).toLocaleString("zh-CN", { hour12: false })} · ${modeLabel} · ${session.players.length}人 · ${done}/${session.matches.length}场`)
       );
       const actions = element("div", "history-actions");
       const open = element("button", "", "继续");
@@ -377,21 +408,14 @@ function finishCurrentMatch() {
   if (!next) setTimeout(() => switchView("overview"), 350);
 }
 
-$("scheduleForm").addEventListener("submit", async event => {
-  event.preventDefault();
-  const button = $("generateBtn");
+async function runScheduleGeneration({ button, loadingText, idleText, create }) {
   button.disabled = true;
-  button.textContent = "正在计算公平赛程…";
+  button.textContent = loadingText;
   preview = null;
   renderPreview();
   await new Promise(resolve => setTimeout(resolve, 30));
   try {
-    const maleNames = parseNames($("malePlayers").value);
-    const femaleNames = parseNames($("femalePlayers").value);
-    const players = createPlayers(maleNames, femaleNames);
-    const seed = `${Date.now()}-${players.map(player => player.name).join("-")}`;
-    const result = generateSchedule(players, $("matchCount").value, seed);
-    preview = { players, result };
+    preview = create();
     renderPreview();
     $("schedulePreview").scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
@@ -400,9 +424,44 @@ $("scheduleForm").addEventListener("submit", async event => {
     panel.classList.remove("hidden");
   } finally {
     button.disabled = false;
-    button.textContent = "生成公平赛程";
+    button.textContent = idleText;
   }
+}
+
+$("doublesScheduleForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  await runScheduleGeneration({
+    button: $("generateDoublesBtn"),
+    loadingText: "正在计算双打赛程…",
+    idleText: "生成双打赛程",
+    create: () => {
+      const maleNames = parseNames($("malePlayers").value);
+      const femaleNames = parseNames($("femalePlayers").value);
+      const players = createPlayers(maleNames, femaleNames);
+      const seed = `${Date.now()}-${players.map(player => player.name).join("-")}`;
+      const result = generateSchedule(players, $("matchCount").value, seed);
+      return { mode: "doubles", name: $("doublesSessionName").value, players, result };
+    }
+  });
 });
+
+$("singlesScheduleForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  await runScheduleGeneration({
+    button: $("generateSinglesBtn"),
+    loadingText: "正在生成单打轮转…",
+    idleText: "生成单打轮转",
+    create: () => {
+      const players = createSinglesPlayers(parseNames($("singlesPlayers").value));
+      const seed = `${Date.now()}-${players.map(player => player.name).join("-")}`;
+      const result = generateSinglesSchedule(players, seed);
+      return { mode: "singles", name: $("singlesSessionName").value, players, result };
+    }
+  });
+});
+
+$("doublesModeBtn").addEventListener("click", () => switchSetupMode("doubles"));
+$("singlesModeBtn").addEventListener("click", () => switchSetupMode("singles"));
 
 document.querySelectorAll(".bottom-tabs button").forEach(button => {
   button.addEventListener("click", () => switchView(button.dataset.view));
@@ -455,14 +514,6 @@ $("shareBtn").addEventListener("click", async () => {
     if (error?.name !== "AbortError") showToast(error.message || "分享失败");
   }
 });
-$("newSessionBtn").addEventListener("click", () => {
-  preview = null;
-  $("scheduleForm").reset();
-  renderPreview();
-  switchView("setup");
-  $("sessionName").focus();
-});
-
 const swipeArea = $("swipeArea");
 swipeArea.addEventListener("touchstart", event => {
   touchStartX = event.changedTouches[0].clientX;
@@ -495,7 +546,7 @@ window.addEventListener("beforeunload", () => {
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
-      const registration = await navigator.serviceWorker.register("./sw.js?v=5", { updateViaCache: "none" });
+      const registration = await navigator.serviceWorker.register("./sw.js?v=7", { updateViaCache: "none" });
       await registration.update();
     } catch (error) {
       console.warn("Service Worker 更新失败：", error);

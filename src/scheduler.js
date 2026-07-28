@@ -1,7 +1,8 @@
 export const MATCH_TYPE_LABELS = {
   mens: "男双",
   womens: "女双",
-  mixed: "混双"
+  mixed: "混双",
+  singles: "单打"
 };
 
 const GAME_OPTIONS = [6, 9, 12, 14, 15, 21];
@@ -370,18 +371,23 @@ function searchOne(players, plan, candidates, rng, nodeLimit, branchLimit) {
 export function validateSchedule(schedule, players, plan) {
   const errors = [];
   const counts = new Map(players.map(player => [player.id, 0]));
-  const quotas = { mens: 0, womens: 0, mixed: 0 };
+  const quotas = { mens: 0, womens: 0, mixed: 0, singles: 0 };
   const genders = new Map(players.map(player => [player.id, player.gender]));
 
   if (schedule.length !== plan.matchCount) errors.push("比赛场数不正确");
   schedule.forEach((match, index) => {
     const participants = match.teams.flat();
-    if (participants.length !== 4 || new Set(participants).size !== 4) {
-      errors.push(`第${index + 1}场不是4名不同队员`);
+    const expectedPlayers = match.type === "singles" ? 2 : 4;
+    if (participants.length !== expectedPlayers || new Set(participants).size !== expectedPlayers) {
+      errors.push(`第${index + 1}场不是${expectedPlayers}名不同队员`);
     }
     participants.forEach(id => counts.set(id, (counts.get(id) || 0) + 1));
     quotas[match.type] += 1;
-    if (match.type === "mixed") {
+    if (match.type === "singles") {
+      if (match.teams.length !== 2 || match.teams.some(team => team.length !== 1)) {
+        errors.push(`第${index + 1}场单打组合不合法`);
+      }
+    } else if (match.type === "mixed") {
       const valid = match.teams.every(team => {
         const teamGenders = team.map(id => genders.get(id)).sort().join(",");
         return teamGenders === "female,male";
@@ -404,6 +410,54 @@ export function validateSchedule(schedule, players, plan) {
     if (quotas[type] !== plan.typeQuotas[type]) errors.push(`${MATCH_TYPE_LABELS[type]}场数不正确`);
   });
   return { valid: errors.length === 0, errors };
+}
+
+export function generateSinglesSchedule(players, seed = "singles-round-robin") {
+  if (players.length !== 4) {
+    throw new Error("单打轮转必须正好输入4名队员。");
+  }
+  const normalized = players.map(player => player.name.trim().toLocaleLowerCase("zh-CN"));
+  if (new Set(normalized).size !== 4) {
+    throw new Error("4名单打队员的姓名不能重复。");
+  }
+
+  // 三组互补对阵相邻排列，使6场单循环中的连续出场降到理论最低。
+  const order = [[0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]];
+  const matches = order.map(([left, right], index) => ({
+    id: `match_${index + 1}`,
+    order: index + 1,
+    court: 1,
+    type: "singles",
+    teams: [[players[left].id], [players[right].id]],
+    status: "pending",
+    score: { a: 0, b: 0 },
+    elapsedSeconds: 0,
+    completedAt: null
+  }));
+  const plan = {
+    mode: "singles",
+    matchCount: 6,
+    targetAppearances: 3,
+    allowedTypes: ["singles"],
+    typeQuotas: { singles: 6 }
+  };
+  const appearanceCounts = Object.fromEntries(players.map(player => [player.id, 3]));
+  const quality = {
+    objective: [0, 1, 0, 2],
+    appearanceCounts,
+    appearanceRange: 0,
+    targetAppearances: 3,
+    partnerMax: 0,
+    opponentMax: 1,
+    maxStreak: 2,
+    consecutiveTransitions: 2,
+    tripleStreaks: 0
+  };
+  const validation = validateSchedule(matches, players, plan);
+  if (!validation.valid) {
+    throw new Error(`单打赛程内部校验失败：${validation.errors.join("；")}`);
+  }
+  return { plan, matches, seed: String(seed), quality };
 }
 
 export function generateSchedule(players, requestedGames = "auto", seed = Date.now().toString()) {
