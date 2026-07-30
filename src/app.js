@@ -399,23 +399,62 @@ function renderQuality(session) {
   panel.append(list);
 }
 
+function buildResultRoundCard(session, match, { interactive = false, current = false } = {}) {
+  const recorded = match.scoreRecorded !== false;
+  const completed = match.status === "completed";
+  const scoreA = Number(match.score?.a ?? 0);
+  const scoreB = Number(match.score?.b ?? 0);
+  const leftWon = completed && recorded && scoreA > scoreB;
+  const rightWon = completed && recorded && scoreB > scoreA;
+  const card = element(
+    interactive ? "button" : "div",
+    `result-round-card${current ? " current" : ""}${completed ? " done" : ""}`
+  );
+  if (interactive) card.type = "button";
+
+  const header = element("div", "result-round-head");
+  const identity = element("div", "result-round-identity");
+  identity.append(
+    element("strong", "", `第${match.order}场`),
+    element("span", "type-pill", matchTypeLabel(match.type))
+  );
+  header.append(
+    identity,
+    element("span", `result-status${completed ? " completed" : ""}`, completed ? "已结束" : "未结束")
+  );
+  card.append(header);
+
+  const matchup = element("div", "result-matchup");
+  const left = element("div", `result-side${leftWon ? " winner" : ""}`);
+  const right = element("div", `result-side${rightWon ? " winner" : ""}`);
+  left.append(element("span", "result-team-name", teamName(session, match.teams[0])));
+  right.append(element("span", "result-team-name", teamName(session, match.teams[1])));
+
+  if (recorded) {
+    left.append(element("strong", "result-score", String(scoreA)));
+    right.append(element("strong", "result-score", String(scoreB)));
+  } else {
+    left.append(element("span", "result-score-placeholder", "—"));
+    right.append(element("span", "result-score-placeholder", "—"));
+  }
+  matchup.append(left, element("span", "result-colon", recorded ? ":" : "VS"), right);
+  card.append(matchup);
+  card.append(element(
+    "div",
+    `result-round-footer${recorded ? "" : " unrecorded"}`,
+    `${recorded ? "比分已记录" : "未录入比分"} · ${formatDuration(match.elapsedSeconds)}`
+  ));
+  return card;
+}
+
 function renderRoundList(session) {
   const root = $("roundList");
   root.replaceChildren();
   session.matches.forEach(match => {
-    const button = element("button", `round-item${match.id === session.runtime.currentMatchId ? " current" : ""}${match.status === "completed" ? " done" : ""}`);
-    button.type = "button";
-    const main = element("span");
-    main.append(
-      element("span", "match-line", `${teamName(session, match.teams[0])} vs ${teamName(session, match.teams[1])}`),
-      element("div", "round-meta",
-        `${match.scoreRecorded === false ? "未录入比分" : `${match.score.a} : ${match.score.b}`} · ${formatDuration(match.elapsedSeconds)}`)
-    );
-    button.append(
-      element("span", "round-number", `第${match.order}场`),
-      main,
-      element("span", "type-pill", match.status === "completed" ? "✅" : matchTypeLabel(match.type))
-    );
+    const button = buildResultRoundCard(session, match, {
+      interactive: true,
+      current: match.id === session.runtime.currentMatchId
+    });
     button.addEventListener("click", () => {
       goToMatch(match.id);
       switchView("score");
@@ -489,19 +528,9 @@ function renderLiveViewer(room = liveRoomData) {
   const roundRoot = $("liveRoundList");
   roundRoot.replaceChildren();
   session.matches.forEach(item => {
-    const row = element("div", `round-item${item.id === session.runtime.currentMatchId ? " current" : ""}${item.status === "completed" ? " done" : ""}`);
-    const main = element("span");
-    main.append(
-      element("span", "match-line", `${teamName(session, item.teams[0])} vs ${teamName(session, item.teams[1])}`),
-      element("div", "round-meta",
-        `${item.scoreRecorded === false ? "未录入比分" : `${item.score.a} : ${item.score.b}`} · ${formatDuration(item.elapsedSeconds)}`)
-    );
-    row.append(
-      element("span", "round-number", `第${item.order}场`),
-      main,
-      element("span", "type-pill", item.status === "completed" ? "✅" : matchTypeLabel(item.type))
-    );
-    roundRoot.append(row);
+    roundRoot.append(buildResultRoundCard(session, item, {
+      current: item.id === session.runtime.currentMatchId
+    }));
   });
 }
 
@@ -860,7 +889,7 @@ window.addEventListener("beforeunload", () => {
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
-      const registration = await navigator.serviceWorker.register("./sw.js?v=12", { updateViaCache: "none" });
+      const registration = await navigator.serviceWorker.register("./sw.js?v=14", { updateViaCache: "none" });
       await registration.update();
     } catch (error) {
       console.warn("Service Worker 更新失败：", error);
