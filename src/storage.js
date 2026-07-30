@@ -94,6 +94,12 @@ function normalizeStore(value) {
   value.sessions.forEach(session => {
     session.runtime ||= { currentMatchId: session.matches[0]?.id || null, runningMatchId: null, startedAt: null };
     session.matches ||= [];
+    session.matches.forEach(match => {
+      match.score ||= { a: 0, b: 0 };
+      if (typeof match.scoreRecorded !== "boolean") {
+        match.scoreRecorded = Number(match.score.a) !== 0 || Number(match.score.b) !== 0;
+      }
+    });
   });
   return value;
 }

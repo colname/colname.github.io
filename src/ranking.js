@@ -16,7 +16,7 @@ export function calculateRanking(session) {
   for (const match of session.matches) {
     const a = Number(match.score?.a || 0);
     const b = Number(match.score?.b || 0);
-    if (match.status !== "completed" || a === b) continue;
+    if (match.status !== "completed" || match.scoreRecorded === false || a === b) continue;
     validMatches += 1;
     const leftWon = a > b;
     match.teams[0].forEach(id => {

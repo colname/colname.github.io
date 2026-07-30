@@ -1,5 +1,5 @@
-import { calculateRanking } from "./ranking.js?v=7";
-import { formatDuration, matchTypeLabel, teamName } from "./model.js?v=7";
+import { calculateRanking } from "./ranking.js?v=8";
+import { formatDuration, matchTypeLabel, teamName } from "./model.js?v=8";
 
 export function buildCSV(session) {
   const rows = [["场次", "类型", "对阵", "比分", "用时", "状态"]];
@@ -8,7 +8,7 @@ export function buildCSV(session) {
       match.order,
       matchTypeLabel(match.type),
       `${teamName(session, match.teams[0])} vs ${teamName(session, match.teams[1])}`,
-      `${match.score.a}:${match.score.b}`,
+      match.scoreRecorded === false ? "未录入" : `${match.score.a}:${match.score.b}`,
       formatDuration(match.elapsedSeconds),
       match.status === "completed" ? "已完成" : "未完成"
     ]);
@@ -64,8 +64,10 @@ function fitText(ctx, text, maxWidth) {
 export function createResultCanvas(session) {
   const { ranking, validMatches } = calculateRanking(session);
   const width = 1242;
-  const rowHeight = 66;
-  const height = 280 + ranking.length * rowHeight + 105 + session.matches.length * rowHeight + 90;
+  const rankingRowHeight = 78;
+  const matchCardHeight = 198;
+  const rankingCardHeight = 28 + ranking.length * rankingRowHeight;
+  const height = 270 + rankingCardHeight + 92 + session.matches.length * matchCardHeight + 70;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -76,60 +78,92 @@ export function createResultCanvas(session) {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
   ctx.fillStyle = "#f8fafc";
-  ctx.font = '800 48px -apple-system,"PingFang SC",sans-serif';
-  ctx.fillText(`🏸 ${session.name}`, 58, 72);
+  ctx.font = '800 52px -apple-system,"PingFang SC",sans-serif';
+  ctx.fillText(`🏸 ${session.name}`, 58, 76);
   const done = session.matches.filter(match => match.status === "completed").length;
   ctx.fillStyle = "#94a3b8";
   ctx.font = '500 25px -apple-system,"PingFang SC",sans-serif';
-  ctx.fillText(`已完成 ${done}/${session.matches.length} 场 · ${validMatches} 场有效结果`, 58, 120);
+  ctx.fillText(`已完成 ${done}/${session.matches.length} 场 · ${validMatches} 场计入排名`, 58, 124);
   ctx.textAlign = "right";
-  ctx.fillText(new Date().toLocaleString("zh-CN", { hour12: false }), width - 58, 120);
+  ctx.fillText(new Date().toLocaleString("zh-CN", { hour12: false }), width - 58, 124);
   ctx.textAlign = "left";
 
-  let y = 160;
-  roundedRect(ctx, 42, y, width - 84, 74 + ranking.length * rowHeight, 24, "#0d1b2d");
-  ctx.fillStyle = "#bae6fd";
-  ctx.font = '750 25px -apple-system,"PingFang SC",sans-serif';
-  ctx.fillText("名次", 72, y + 45);
-  ctx.fillText("队员", 190, y + 45);
-  ctx.fillText("场次", 650, y + 45);
-  ctx.fillText("胜", 800, y + 45);
-  ctx.fillText("负", 930, y + 45);
-  ctx.fillText("净胜分", 1050, y + 45);
+  let y = 174;
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = '800 34px -apple-system,"PingFang SC",sans-serif';
+  ctx.fillText("个人排名", 58, y);
+  y += 30;
+  roundedRect(ctx, 42, y, width - 84, rankingCardHeight, 24, "#0d1b2d");
   ranking.forEach((player, index) => {
-    const rowY = y + 78 + index * rowHeight;
-    ctx.fillStyle = index % 2 ? "#0d1b2d" : "#12243a";
-    ctx.fillRect(58, rowY - 31, width - 116, rowHeight);
+    const rowTop = y + 14 + index * rankingRowHeight;
+    const isFirst = player.rank === 1 && validMatches > 0;
+    roundedRect(ctx, 58, rowTop, width - 116, rankingRowHeight - 8, 14,
+      isFirst ? "#17334c" : index % 2 ? "#0d1b2d" : "#12243a");
+    ctx.beginPath();
+    ctx.arc(94, rowTop + 35, 23, 0, Math.PI * 2);
+    ctx.fillStyle = isFirst ? "#b9f52d" : "#25415c";
+    ctx.fill();
+    ctx.fillStyle = isFirst ? "#07111f" : "#f8fafc";
+    ctx.font = '800 25px -apple-system,"PingFang SC",sans-serif';
+    ctx.textAlign = "center";
+    ctx.fillText(validMatches ? String(player.rank) : "—", 94, rowTop + 44);
+    ctx.textAlign = "left";
+    ctx.fillStyle = isFirst ? "#d9ff70" : "#f8fafc";
+    ctx.font = '750 29px -apple-system,"PingFang SC",sans-serif';
+    ctx.fillText(fitText(ctx, player.name, 490), 142, rowTop + 45);
     ctx.fillStyle = "#f8fafc";
-    ctx.font = '650 26px -apple-system,"PingFang SC",sans-serif';
-    ctx.fillText(validMatches ? String(player.rank) : "—", 78, rowY + 8);
-    ctx.fillText(fitText(ctx, player.name, 370), 190, rowY + 8);
-    ctx.fillText(String(player.played), 675, rowY + 8);
-    ctx.fillText(String(player.wins), 810, rowY + 8);
-    ctx.fillText(String(player.losses), 940, rowY + 8);
-    ctx.fillText(player.net > 0 ? `+${player.net}` : String(player.net), 1080, rowY + 8);
+    ctx.font = '700 27px -apple-system,"PingFang SC",sans-serif';
+    ctx.fillText(`${player.wins}胜${player.losses}负`, 730, rowTop + 44);
+    ctx.fillStyle = player.net > 0 ? "#86efac" : player.net < 0 ? "#fda4af" : "#cbd5e1";
+    ctx.fillText(`净胜分 ${player.net > 0 ? "+" : ""}${player.net}`, 940, rowTop + 44);
   });
 
-  y += 100 + ranking.length * rowHeight;
+  y += rankingCardHeight + 62;
   ctx.fillStyle = "#f8fafc";
   ctx.font = '800 34px -apple-system,"PingFang SC",sans-serif';
   ctx.fillText("全部赛果", 58, y);
-  y += 44;
-  roundedRect(ctx, 42, y, width - 84, 58 + session.matches.length * rowHeight, 24, "#0d1b2d");
+  y += 28;
   session.matches.forEach((match, index) => {
-    const rowY = y + 48 + index * rowHeight;
-    if (index % 2 === 0) {
-      ctx.fillStyle = "#12243a";
-      ctx.fillRect(58, rowY - 29, width - 116, rowHeight);
-    }
+    const cardY = y + index * matchCardHeight;
+    roundedRect(ctx, 42, cardY, width - 84, matchCardHeight - 14, 22,
+      index % 2 ? "#0d1b2d" : "#102138");
+    roundedRect(ctx, 505, cardY + 15, 232, 37, 18, "#1a3855");
+    ctx.fillStyle = "#dbeafe";
+    ctx.font = '750 21px -apple-system,"PingFang SC",sans-serif';
+    ctx.textAlign = "center";
+    ctx.fillText(`第${match.order}场 · ${matchTypeLabel(match.type)}`, width / 2, cardY + 41);
     ctx.fillStyle = "#f8fafc";
-    ctx.font = '600 23px -apple-system,"PingFang SC",sans-serif';
-    ctx.fillText(`${match.order}. ${matchTypeLabel(match.type)}`, 76, rowY + 8);
-    const versus = `${teamName(session, match.teams[0])}  vs  ${teamName(session, match.teams[1])}`;
-    ctx.fillText(fitText(ctx, versus, 650), 245, rowY + 8);
-    ctx.fillText(`${match.score.a} : ${match.score.b}`, 945, rowY + 8);
+    ctx.font = '700 25px -apple-system,"PingFang SC",sans-serif';
+    ctx.fillText(fitText(ctx, teamName(session, match.teams[0]), 450), 310, cardY + 83);
+    ctx.fillText(fitText(ctx, teamName(session, match.teams[1]), 450), 932, cardY + 83);
+
+    const recorded = match.scoreRecorded !== false;
+    if (recorded) {
+      const scoreA = Number(match.score.a);
+      const scoreB = Number(match.score.b);
+      const leftWon = match.status === "completed" && scoreA > scoreB;
+      const rightWon = match.status === "completed" && scoreB > scoreA;
+      ctx.font = '900 88px -apple-system,"PingFang SC",sans-serif';
+      ctx.textAlign = "right";
+      ctx.fillStyle = leftWon ? "#b9f52d" : "#f8fafc";
+      ctx.fillText(String(scoreA), 565, cardY + 170);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#64748b";
+      ctx.fillText(":", width / 2, cardY + 166);
+      ctx.textAlign = "left";
+      ctx.fillStyle = rightWon ? "#b9f52d" : "#f8fafc";
+      ctx.fillText(String(scoreB), 677, cardY + 170);
+    } else {
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = '750 31px -apple-system,"PingFang SC",sans-serif';
+      ctx.textAlign = "center";
+      ctx.fillText("未录入比分", width / 2, cardY + 151);
+    }
+    ctx.textAlign = "right";
     ctx.fillStyle = match.status === "completed" ? "#86efac" : "#94a3b8";
-    ctx.fillText(match.status === "completed" ? "已完成" : "未完成", 1080, rowY + 8);
+    ctx.font = '650 20px -apple-system,"PingFang SC",sans-serif';
+    ctx.fillText(match.status === "completed" ? "已结束" : "未结束", width - 68, cardY + 40);
+    ctx.textAlign = "left";
   });
   return canvas;
 }
