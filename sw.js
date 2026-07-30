@@ -1,17 +1,17 @@
-const CACHE_NAME = "yjun-badminton-v7";
+const CACHE_NAME = "yjun-badminton-v8";
 const OFFLINE_ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./icon-180.png",
   "./icon-512.png",
-  "./assets/app.css?v=7",
-  "./src/app.js?v=7",
-  "./src/model.js?v=7",
-  "./src/scheduler.js?v=7",
-  "./src/storage.js?v=7",
-  "./src/ranking.js?v=7",
-  "./src/export.js?v=7"
+  "./assets/app.css?v=8",
+  "./src/app.js?v=8",
+  "./src/model.js?v=8",
+  "./src/scheduler.js?v=8",
+  "./src/storage.js?v=8",
+  "./src/ranking.js?v=8",
+  "./src/export.js?v=8"
 ];
 
 self.addEventListener("install", event => {

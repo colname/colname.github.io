@@ -1,8 +1,8 @@
-import { createPlayers, createSession, createSinglesPlayers, formatDuration, matchTypeLabel, playerMap, teamName, validFinalScore } from "./model.js?v=7";
-import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js?v=7";
-import { activeSession, loadStore, removeSession, saveStore, setActiveSession, upsertSession } from "./storage.js?v=7";
-import { calculateRanking } from "./ranking.js?v=7";
-import { copySessionCSV, shareResultImage } from "./export.js?v=7";
+import { createPlayers, createSession, createSinglesPlayers, formatDuration, matchTypeLabel, playerMap, teamName } from "./model.js?v=8";
+import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js?v=8";
+import { activeSession, loadStore, removeSession, saveStore, setActiveSession, upsertSession } from "./storage.js?v=8";
+import { calculateRanking } from "./ranking.js?v=8";
+import { copySessionCSV, shareResultImage } from "./export.js?v=8";
 
 const $ = id => document.getElementById(id);
 const store = loadStore();
@@ -187,15 +187,18 @@ function renderScore() {
   $("typeText").textContent = matchTypeLabel(match.type);
   $("leftTeam").textContent = match.teams[0].map(id => playerNames.get(id)?.name).join("＋");
   $("rightTeam").textContent = match.teams[1].map(id => playerNames.get(id)?.name).join("＋");
-  $("scoreA").textContent = match.score.a;
-  $("scoreB").textContent = match.score.b;
+  const scoreRecorded = match.scoreRecorded !== false;
+  $("scoreEntryIntro").classList.toggle("hidden", scoreRecorded);
+  $("scoreEntryPanel").classList.toggle("hidden", !scoreRecorded);
+  $("scoreA").value = match.score.a;
+  $("scoreB").value = match.score.b;
   $("timer").textContent = formatDuration(displayedElapsed(session, match));
   const running = session.runtime.runningMatchId === match.id;
   $("startBtn").classList.toggle("hidden", running);
   $("pauseBtn").classList.toggle("hidden", !running);
   $("finishBtn").textContent = match.status === "completed"
     ? "✓ 本场已完成，前往下一场"
-    : "✓ 完成本场并进入下一场";
+    : "✓ 结束比赛并进入下一场";
   $("prevBtn").disabled = match.order === 1;
   $("nextBtn").disabled = match.order === session.matches.length;
 }
@@ -264,7 +267,8 @@ function renderRoundList(session) {
     const main = element("span");
     main.append(
       element("span", "match-line", `${teamName(session, match.teams[0])} vs ${teamName(session, match.teams[1])}`),
-      element("div", "round-meta", `${match.score.a} : ${match.score.b} · ${formatDuration(match.elapsedSeconds)}`)
+      element("div", "round-meta",
+        `${match.scoreRecorded === false ? "未录入比分" : `${match.score.a} : ${match.score.b}`} · ${formatDuration(match.elapsedSeconds)}`)
     );
     button.append(
       element("span", "round-number", `第${match.order}场`),
@@ -365,11 +369,32 @@ function adjacentMatch(delta) {
   if (next) goToMatch(next.id);
 }
 
-function changeScore(side, nextValue) {
+function normalizeScoreValue(value) {
+  const parsed = Math.floor(Number(value));
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+function changeScore(side, nextValue, { render = true, feedback = true } = {}) {
   const session = currentSession();
   const match = currentMatch(session);
   if (!session || !match) return;
-  match.score[side] = Math.max(0, Math.min(30, Number(nextValue) || 0));
+  match.score[side] = normalizeScoreValue(nextValue);
+  match.scoreRecorded = true;
+  if (match.status === "completed") {
+    match.status = "pending";
+    match.completedAt = null;
+    session.status = "active";
+  }
+  upsertSession(store, session);
+  if (render) renderAll();
+  if (feedback) vibrate(8);
+}
+
+function setScoreRecorded(enabled) {
+  const session = currentSession();
+  const match = currentMatch(session);
+  if (!session || !match) return;
+  match.scoreRecorded = enabled;
   if (match.status === "completed") {
     match.status = "pending";
     match.completedAt = null;
@@ -377,6 +402,7 @@ function changeScore(side, nextValue) {
   }
   upsertSession(store, session);
   renderAll();
+  if (enabled) requestAnimationFrame(() => $("scoreA").focus());
   vibrate(8);
 }
 
@@ -384,10 +410,9 @@ function finishCurrentMatch() {
   const session = currentSession();
   const match = currentMatch(session);
   if (!session || !match) return;
-  if (match.status !== "completed" && !validFinalScore(match.score, session.scoringRule)) {
-    showToast("21分制需领先2分；29平后30分封顶");
-    vibrate([30, 35, 30]);
-    return;
+  if (match.scoreRecorded !== false) {
+    match.score.a = normalizeScoreValue($("scoreA").value);
+    match.score.b = normalizeScoreValue($("scoreB").value);
   }
   pauseTimer(session, false);
   match.status = "completed";
@@ -397,10 +422,10 @@ function finishCurrentMatch() {
     session.matches.find(item => item.status !== "completed");
   if (next) {
     session.runtime.currentMatchId = next.id;
-    showToast("本场已完成");
+    showToast(match.scoreRecorded === false ? "比赛已结束，未记录比分" : "比赛及比分已保存");
   } else {
     session.status = "completed";
-    showToast("全部比赛完成，最终排名已生成");
+    showToast("全部比赛完成，有效比分已计入排名");
   }
   upsertSession(store, session);
   renderAll();
@@ -478,6 +503,16 @@ document.querySelectorAll("[data-score-side]").forEach(button => {
     changeScore(side, next);
   });
 });
+$("toggleScoreBtn").addEventListener("click", () => setScoreRecorded(true));
+$("cancelScoreBtn").addEventListener("click", () => setScoreRecorded(false));
+[
+  ["scoreA", "a"],
+  ["scoreB", "b"]
+].forEach(([inputId, side]) => {
+  $(inputId).addEventListener("input", event => {
+    changeScore(side, event.target.value, { render: false, feedback: false });
+  });
+});
 
 $("startBtn").addEventListener("click", () => {
   const session = currentSession();
@@ -546,7 +581,7 @@ window.addEventListener("beforeunload", () => {
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
-      const registration = await navigator.serviceWorker.register("./sw.js?v=7", { updateViaCache: "none" });
+      const registration = await navigator.serviceWorker.register("./sw.js?v=8", { updateViaCache: "none" });
       await registration.update();
     } catch (error) {
       console.warn("Service Worker 更新失败：", error);

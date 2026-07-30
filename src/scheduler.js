@@ -431,6 +431,7 @@ export function generateSinglesSchedule(players, seed = "singles-round-robin") {
     teams: [[players[left].id], [players[right].id]],
     status: "pending",
     score: { a: 0, b: 0 },
+    scoreRecorded: false,
     elapsedSeconds: 0,
     completedAt: null
   }));
@@ -495,6 +496,7 @@ export function generateSchedule(players, requestedGames = "auto", seed = Date.n
     teams: candidate.teams.map(team => [...team]),
     status: "pending",
     score: { a: 0, b: 0 },
+    scoreRecorded: false,
     elapsedSeconds: 0,
     completedAt: null
   }));

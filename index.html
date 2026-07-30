@@ -11,7 +11,7 @@
   <title>YJUN羽毛球管理工具</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icon-180.png">
-  <link rel="stylesheet" href="./assets/app.css?v=7">
+  <link rel="stylesheet" href="./assets/app.css?v=8">
 </head>
 <body>
   <main class="app">
@@ -102,39 +102,48 @@
             <div class="versus">VS</div>
             <div class="team" id="rightTeam"></div>
           </div>
-          <div class="score-grid">
-            <div class="score-box">
-              <div class="score" id="scoreA">0</div>
-              <div class="stepper">
-                <button type="button" data-score-side="a" data-delta="-1">－</button>
-                <button type="button" data-score-side="a" data-delta="1">＋</button>
+          <div class="score-entry-intro" id="scoreEntryIntro">
+            <button class="record-score-btn" type="button" id="toggleScoreBtn">录入比分</button>
+            <span>可选；不录比分也能直接结束比赛</span>
+          </div>
+          <div class="score-entry-panel hidden" id="scoreEntryPanel">
+            <div class="score-grid">
+              <div class="score-box">
+                <input class="score" id="scoreA" type="number" min="0" step="1" inputmode="numeric" aria-label="左队比分" value="0">
+                <div class="stepper">
+                  <button type="button" data-score-side="a" data-delta="-1">－</button>
+                  <button type="button" data-score-side="a" data-delta="1">＋</button>
+                </div>
+                <div class="presets">
+                  <button type="button" data-score-side="a" data-value="11">11</button>
+                  <button type="button" data-score-side="a" data-value="15">15</button>
+                  <button type="button" data-score-side="a" data-value="21">21</button>
+                  <button type="button" data-score-side="a" data-value="25">25</button>
+                  <button type="button" data-score-side="a" data-value="31">31</button>
+                </div>
               </div>
-              <div class="presets">
-                <button type="button" data-score-side="a" data-value="10">10</button>
-                <button type="button" data-score-side="a" data-value="15">15</button>
-                <button type="button" data-score-side="a" data-value="18">18</button>
-                <button type="button" data-score-side="a" data-value="21">21</button>
+              <div class="score-colon">:</div>
+              <div class="score-box">
+                <input class="score" id="scoreB" type="number" min="0" step="1" inputmode="numeric" aria-label="右队比分" value="0">
+                <div class="stepper">
+                  <button type="button" data-score-side="b" data-delta="-1">－</button>
+                  <button type="button" data-score-side="b" data-delta="1">＋</button>
+                </div>
+                <div class="presets">
+                  <button type="button" data-score-side="b" data-value="11">11</button>
+                  <button type="button" data-score-side="b" data-value="15">15</button>
+                  <button type="button" data-score-side="b" data-value="21">21</button>
+                  <button type="button" data-score-side="b" data-value="25">25</button>
+                  <button type="button" data-score-side="b" data-value="31">31</button>
+                </div>
               </div>
             </div>
-            <div class="score-colon">:</div>
-            <div class="score-box">
-              <div class="score" id="scoreB">0</div>
-              <div class="stepper">
-                <button type="button" data-score-side="b" data-delta="-1">－</button>
-                <button type="button" data-score-side="b" data-delta="1">＋</button>
-              </div>
-              <div class="presets">
-                <button type="button" data-score-side="b" data-value="10">10</button>
-                <button type="button" data-score-side="b" data-value="15">15</button>
-                <button type="button" data-score-side="b" data-value="18">18</button>
-                <button type="button" data-score-side="b" data-value="21">21</button>
-              </div>
-            </div>
+            <button class="cancel-score-btn" type="button" id="cancelScoreBtn">不记录本场比分</button>
           </div>
           <div class="timer" id="timer">00:00</div>
           <button class="primary-btn" type="button" id="startBtn">▶ 开始本场</button>
           <button class="secondary-btn hidden" type="button" id="pauseBtn">⏸ 暂停</button>
-          <button class="finish-btn" type="button" id="finishBtn">✓ 完成本场并进入下一场</button>
+          <button class="finish-btn" type="button" id="finishBtn">✓ 结束比赛并进入下一场</button>
         </section>
 
         <div class="round-nav">
@@ -193,6 +202,6 @@
   </nav>
 
   <div class="toast" id="toast"></div>
-  <script type="module" src="./src/app.js?v=7"></script>
+  <script type="module" src="./src/app.js?v=8"></script>
 </body>
 </html>
