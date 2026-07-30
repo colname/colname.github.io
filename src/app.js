@@ -3,6 +3,17 @@ import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseName
 import { activeSession, loadStore, removeSession, saveStore, setActiveSession, upsertSession } from "./storage.js?v=8";
 import { calculateRanking } from "./ranking.js?v=8";
 import { copySessionCSV, shareResultImage } from "./export.js?v=8";
+import {
+  buildLiveUrl,
+  closeLiveRoom,
+  createLiveRoom,
+  getLiveRoom,
+  primarySiteUrl,
+  realtimeConfigured,
+  roomIdFromUrl,
+  updateLiveRoom,
+  watchLiveRoom
+} from "./realtime.js?v=12";
 
 const $ = id => document.getElementById(id);
 const store = loadStore();
@@ -11,6 +22,11 @@ let toastTimer = null;
 let wakeLock = null;
 let touchStartX = null;
 let setupMode = "doubles";
+let liveSyncTimer = null;
+let liveRoomData = null;
+let liveWatcher = null;
+let livePollTimer = null;
+const requestedLiveRoomId = roomIdFromUrl();
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -37,6 +53,27 @@ function currentSession() {
 function currentMatch(session = currentSession()) {
   if (!session) return null;
   return session.matches.find(match => match.id === session.runtime.currentMatchId) || session.matches[0] || null;
+}
+
+function queueLiveSync(session, delay = 350) {
+  if (!session?.liveShare?.active || !session.liveShare.roomId) return;
+  clearTimeout(liveSyncTimer);
+  liveSyncTimer = setTimeout(async () => {
+    try {
+      await updateLiveRoom(session.liveShare.roomId, session);
+      session.liveShare.lastSyncedAt = new Date().toISOString();
+      session.liveShare.syncError = null;
+    } catch (error) {
+      session.liveShare.syncError = error?.message || "同步失败";
+    }
+    upsertSession(store, session);
+    renderLiveShare(session);
+  }, delay);
+}
+
+function persistSession(session, makeActive = true) {
+  upsertSession(store, session, makeActive);
+  queueLiveSync(session);
 }
 
 function displayedElapsed(session, match) {
@@ -77,7 +114,7 @@ function pauseTimer(session = currentSession(), persist = true) {
   session.runtime.runningMatchId = null;
   session.runtime.startedAt = null;
   releaseWakeLock();
-  if (persist) upsertSession(store, session);
+  if (persist) persistSession(session);
 }
 
 function switchView(viewName) {
@@ -161,7 +198,7 @@ function renderPreview() {
       players: preview.players,
       scheduleResult: preview.result
     });
-    upsertSession(store, session);
+    persistSession(session);
     preview = null;
     renderPreview();
     showToast("活动已保存，可以开始计分");
@@ -201,6 +238,110 @@ function renderScore() {
     : "✓ 结束比赛并进入下一场";
   $("prevBtn").disabled = match.order === 1;
   $("nextBtn").disabled = match.order === session.matches.length;
+}
+
+function renderLiveShare(session = currentSession()) {
+  const active = Boolean(session?.liveShare?.active && session.liveShare.roomId);
+  $("liveShareDetails").classList.toggle("hidden", !active);
+  $("startLiveBtn").classList.toggle("hidden", active);
+  if (!session) {
+    $("liveShareStatus").textContent = "请先创建比赛";
+    return;
+  }
+  if (!active) {
+    const configured = realtimeConfigured();
+    $("liveShareStatus").textContent = configured
+      ? "未开启，只保存在你的手机"
+      : "实时共享请使用腾讯稳定版";
+    $("startLiveBtn").textContent = configured ? "开启共享" : "打开稳定版";
+    return;
+  }
+  const shareUrl = session.liveShare.url || buildLiveUrl(session.liveShare.roomId);
+  $("liveRoomCode").textContent = session.liveShare.roomId;
+  $("liveShareLink").textContent = shareUrl;
+  $("liveShareStatus").textContent = session.liveShare.syncError
+    ? `同步暂时中断：${session.liveShare.syncError}`
+    : "共享中 · 朋友只能观看";
+}
+
+async function startLiveSharing() {
+  const session = currentSession();
+  if (!session) return;
+  if (!realtimeConfigured()) {
+    window.location.href = primarySiteUrl();
+    return;
+  }
+  const button = $("startLiveBtn");
+  button.disabled = true;
+  button.textContent = "正在开启…";
+  try {
+    const room = await createLiveRoom(session);
+    session.liveShare = {
+      ...room,
+      active: true,
+      startedAt: new Date().toISOString(),
+      lastSyncedAt: new Date().toISOString(),
+      syncError: null
+    };
+    upsertSession(store, session);
+    renderAll();
+    showToast("实时共享已开启");
+  } catch (error) {
+    showToast(error?.message || "开启实时共享失败");
+  } finally {
+    button.disabled = false;
+    button.textContent = "开启共享";
+  }
+}
+
+async function stopLiveSharing() {
+  const session = currentSession();
+  if (!session?.liveShare?.active) return;
+  if (!confirm("确定结束本次实时共享吗？朋友的观战页面将停止更新。")) return;
+  $("stopLiveBtn").disabled = true;
+  try {
+    await closeLiveRoom(session.liveShare.roomId, session);
+    session.liveShare.active = false;
+    session.liveShare.stoppedAt = new Date().toISOString();
+    upsertSession(store, session);
+    renderAll();
+    showToast("实时共享已结束");
+  } catch (error) {
+    showToast(error?.message || "结束共享失败");
+  } finally {
+    $("stopLiveBtn").disabled = false;
+  }
+}
+
+async function copyLiveLink() {
+  const session = currentSession();
+  const url = session?.liveShare?.url;
+  if (!url) return;
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast("观战链接已复制");
+  } catch {
+    showToast("复制失败，请长按链接复制");
+  }
+}
+
+async function shareLiveLink() {
+  const session = currentSession();
+  const url = session?.liveShare?.url;
+  if (!url) return;
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: `${session.name} · 实时观战`,
+        text: "打开链接即可实时查看比分、赛程和排名：",
+        url
+      });
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+  await copyLiveLink();
 }
 
 function renderRanking(session) {
@@ -283,6 +424,136 @@ function renderRoundList(session) {
   });
 }
 
+function liveTimestamp(value) {
+  const raw = value?.$date || value;
+  const date = raw ? new Date(raw) : null;
+  if (!date || Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  });
+}
+
+function renderLiveViewer(room = liveRoomData) {
+  if (!room?.session) return;
+  const session = room.session;
+  const match = currentMatch(session);
+  const done = session.matches.filter(item => item.status === "completed").length;
+  document.body.classList.toggle("live-ended", room.live === false);
+  $("liveSessionName").textContent = session.name;
+  $("liveStatusText").textContent = room.live === false
+    ? "本次共享已结束，以下是最后一次记录"
+    : "比分由主持人实时更新";
+  $("liveUpdatedAt").textContent = liveTimestamp(room.updatedAt)
+    ? `更新 ${liveTimestamp(room.updatedAt)}`
+    : "";
+  $("liveProgressText").textContent = match
+    ? `第 ${match.order} / ${session.matches.length} 场 · 已完成 ${done} 场`
+    : `共 ${session.matches.length} 场`;
+  if (!match) return;
+
+  const players = playerMap(session);
+  $("liveRoundBadge").textContent = `第 ${match.order} 场`;
+  $("liveTypeText").textContent = matchTypeLabel(match.type);
+  $("liveLeftTeam").textContent = match.teams[0].map(id => players.get(id)?.name).join("＋");
+  $("liveRightTeam").textContent = match.teams[1].map(id => players.get(id)?.name).join("＋");
+  const recorded = match.scoreRecorded !== false;
+  $("liveScoreBlock").classList.toggle("hidden", !recorded);
+  $("liveScoreMessage").classList.toggle("hidden", recorded);
+  $("liveScoreA").textContent = String(match.score?.a ?? 0);
+  $("liveScoreB").textContent = String(match.score?.b ?? 0);
+  $("liveTimer").textContent = formatDuration(displayedElapsed(session, match));
+
+  const { ranking, validMatches } = calculateRanking(session);
+  $("liveRankingStatus").textContent = `${validMatches} 场有效结果`;
+  const rankingRoot = $("liveRankingList");
+  rankingRoot.replaceChildren();
+  ranking.forEach(player => {
+    const row = element("div", `ranking-row${player.rank === 1 && validMatches ? " top" : ""}`);
+    const rank = validMatches
+      ? player.rank === 1 ? "🥇" : player.rank === 2 ? "🥈" : player.rank === 3 ? "🥉" : String(player.rank)
+      : "—";
+    const net = player.net > 0 ? `+${player.net}` : String(player.net);
+    row.append(
+      element("span", "", rank),
+      element("span", "", player.name),
+      element("span", "", String(player.wins)),
+      element("span", "", String(player.losses)),
+      element("span", player.net > 0 ? "positive" : player.net < 0 ? "negative" : "", net)
+    );
+    rankingRoot.append(row);
+  });
+
+  const roundRoot = $("liveRoundList");
+  roundRoot.replaceChildren();
+  session.matches.forEach(item => {
+    const row = element("div", `round-item${item.id === session.runtime.currentMatchId ? " current" : ""}${item.status === "completed" ? " done" : ""}`);
+    const main = element("span");
+    main.append(
+      element("span", "match-line", `${teamName(session, item.teams[0])} vs ${teamName(session, item.teams[1])}`),
+      element("div", "round-meta",
+        `${item.scoreRecorded === false ? "未录入比分" : `${item.score.a} : ${item.score.b}`} · ${formatDuration(item.elapsedSeconds)}`)
+    );
+    row.append(
+      element("span", "round-number", `第${item.order}场`),
+      main,
+      element("span", "type-pill", item.status === "completed" ? "✅" : matchTypeLabel(item.type))
+    );
+    roundRoot.append(row);
+  });
+}
+
+function showLiveViewerError(message) {
+  $("liveSessionName").textContent = "暂时无法观看";
+  $("liveStatusText").textContent = message;
+  $("liveProgressText").textContent = "请稍后刷新页面";
+}
+
+function startLivePolling(roomId) {
+  if (livePollTimer) return;
+  livePollTimer = setInterval(async () => {
+    try {
+      const room = await getLiveRoom(roomId);
+      if (room) {
+        liveRoomData = room;
+        renderLiveViewer();
+      }
+    } catch {
+      // Keep the last received result visible while the network recovers.
+    }
+  }, 5000);
+}
+
+async function initLiveViewer(roomId) {
+  document.body.classList.add("viewer-mode");
+  $("liveView").classList.remove("hidden");
+  try {
+    const room = await getLiveRoom(roomId);
+    if (!room) {
+      showLiveViewerError("观战房间不存在或已经失效");
+      return;
+    }
+    liveRoomData = room;
+    renderLiveViewer();
+    liveWatcher = await watchLiveRoom(roomId, {
+      onChange(nextRoom) {
+        if (!nextRoom) return;
+        liveRoomData = nextRoom;
+        renderLiveViewer();
+      },
+      onError() {
+        $("liveStatusText").textContent = "实时连接不稳定，正在自动刷新";
+        startLivePolling(roomId);
+      }
+    });
+  } catch (error) {
+    showLiveViewerError(error?.message || "连接实时房间失败");
+    startLivePolling(roomId);
+  }
+}
+
 function renderOverview() {
   const session = currentSession();
   $("overviewEmpty").classList.toggle("hidden", Boolean(session));
@@ -346,6 +617,7 @@ function renderAll() {
   $("sessionSubtitle").textContent = session ? session.name : "排赛、计分与排名";
   renderPreview();
   renderScore();
+  renderLiveShare(session);
   renderOverview();
   renderHistory();
 }
@@ -355,7 +627,7 @@ function goToMatch(matchId) {
   if (!session || !session.matches.some(match => match.id === matchId)) return;
   pauseTimer(session, false);
   session.runtime.currentMatchId = matchId;
-  upsertSession(store, session);
+  persistSession(session);
   renderAll();
   vibrate(8);
 }
@@ -385,7 +657,7 @@ function changeScore(side, nextValue, { render = true, feedback = true } = {}) {
     match.completedAt = null;
     session.status = "active";
   }
-  upsertSession(store, session);
+  persistSession(session);
   if (render) renderAll();
   if (feedback) vibrate(8);
 }
@@ -400,7 +672,7 @@ function setScoreRecorded(enabled) {
     match.completedAt = null;
     session.status = "active";
   }
-  upsertSession(store, session);
+  persistSession(session);
   renderAll();
   if (enabled) requestAnimationFrame(() => $("scoreA").focus());
   vibrate(8);
@@ -427,7 +699,7 @@ function finishCurrentMatch() {
     session.status = "completed";
     showToast("全部比赛完成，有效比分已计入排名");
   }
-  upsertSession(store, session);
+  persistSession(session);
   renderAll();
   vibrate([20, 30, 20]);
   if (!next) setTimeout(() => switchView("overview"), 350);
@@ -520,7 +792,7 @@ $("startBtn").addEventListener("click", () => {
   if (!session || !match || session.runtime.runningMatchId) return;
   session.runtime.runningMatchId = match.id;
   session.runtime.startedAt = Date.now();
-  upsertSession(store, session);
+  persistSession(session);
   requestWakeLock();
   renderScore();
   vibrate();
@@ -533,6 +805,10 @@ $("pauseBtn").addEventListener("click", () => {
 $("finishBtn").addEventListener("click", finishCurrentMatch);
 $("prevBtn").addEventListener("click", () => adjacentMatch(-1));
 $("nextBtn").addEventListener("click", () => adjacentMatch(1));
+$("startLiveBtn").addEventListener("click", startLiveSharing);
+$("copyLiveBtn").addEventListener("click", copyLiveLink);
+$("systemShareLiveBtn").addEventListener("click", shareLiveLink);
+$("stopLiveBtn").addEventListener("click", stopLiveSharing);
 $("copyBtn").addEventListener("click", async () => {
   const session = currentSession();
   if (!session) return;
@@ -562,6 +838,7 @@ swipeArea.addEventListener("touchend", event => {
 }, { passive: true });
 
 setInterval(() => {
+  if (liveRoomData) renderLiveViewer();
   const session = currentSession();
   if (session?.runtime.runningMatchId) renderScore();
 }, 1000);
@@ -571,6 +848,8 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && session?.runtime.runningMatchId) requestWakeLock();
 });
 window.addEventListener("beforeunload", () => {
+  liveWatcher?.close?.();
+  clearInterval(livePollTimer);
   const session = currentSession();
   if (session?.runtime.runningMatchId) {
     commitRunningTime(session);
@@ -581,7 +860,7 @@ window.addEventListener("beforeunload", () => {
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
-      const registration = await navigator.serviceWorker.register("./sw.js?v=8", { updateViaCache: "none" });
+      const registration = await navigator.serviceWorker.register("./sw.js?v=12", { updateViaCache: "none" });
       await registration.update();
     } catch (error) {
       console.warn("Service Worker 更新失败：", error);
@@ -589,4 +868,8 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-renderAll();
+if (requestedLiveRoomId) {
+  initLiveViewer(requestedLiveRoomId);
+} else {
+  renderAll();
+}
