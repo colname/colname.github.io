@@ -43,8 +43,34 @@ test("8人5男3女自动避开不可行的14场并推荐12场", () => {
   assert.deepEqual(plan.typeQuotas, { mens: 3, womens: 0, mixed: 9 });
 });
 
-test("明确拒绝暂不支持的5男2女", () => {
-  assert.throws(() => resolveSchedulePlan(roster(5, 2), "auto"), /暂不支持/);
+test("6人5男1女使用男双和混双对男双，并保持每人8场", () => {
+  const players = roster(5, 1);
+  const result = generateSchedule(players, "auto", "test-5m-1f");
+  assert.equal(result.plan.matchCount, 12);
+  assert.equal(result.plan.targetAppearances, 8);
+  assert.deepEqual(result.plan.typeQuotas, {
+    mens: 4,
+    womens: 0,
+    mixed: 0,
+    mixedMens: 8
+  });
+  assert.equal(validateSchedule(result.matches, players, result.plan).valid, true);
+  assert.equal(result.quality.appearanceRange, 0);
+});
+
+test("6人1男5女使用女双和混双对女双，并保持每人8场", () => {
+  const players = roster(1, 5);
+  const result = generateSchedule(players, "auto", "test-1m-5f");
+  assert.equal(result.plan.matchCount, 12);
+  assert.equal(result.plan.targetAppearances, 8);
+  assert.deepEqual(result.plan.typeQuotas, {
+    mens: 0,
+    womens: 4,
+    mixed: 0,
+    mixedWomens: 8
+  });
+  assert.equal(validateSchedule(result.matches, players, result.plan).valid, true);
+  assert.equal(result.quality.appearanceRange, 0);
 });
 
 test("相同随机种子产生相同赛程", () => {
@@ -57,12 +83,13 @@ test("相同随机种子产生相同赛程", () => {
   );
 });
 
-test("所有已支持的男女组合都能生成通过内部校验的赛程", () => {
-  const cases = [
-    [3, 3], [4, 2], [2, 4],
-    [4, 3], [3, 4],
-    [4, 4], [5, 3], [3, 5], [6, 2], [2, 6]
-  ];
+test("6至8人的全部男女比例都能生成绝对公平赛程", () => {
+  const cases = [];
+  for (let total = 6; total <= 8; total += 1) {
+    for (let males = 0; males <= total; males += 1) {
+      cases.push([males, total - males]);
+    }
+  }
   cases.forEach(([males, females]) => {
     const players = roster(males, females);
     const result = generateSchedule(players, "auto", `matrix-${males}-${females}`);

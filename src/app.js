@@ -1,8 +1,8 @@
-import { createPlayers, createSession, createSinglesPlayers, formatDuration, matchTypeLabel, playerMap, teamName } from "./model.js?v=8";
-import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js?v=8";
+import { createPlayers, createSession, createSinglesPlayers, formatDuration, matchTypeLabel, playerMap, teamName } from "./model.js?v=15";
+import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js?v=15";
 import { activeSession, loadStore, removeSession, saveStore, setActiveSession, upsertSession } from "./storage.js?v=8";
 import { calculateRanking } from "./ranking.js?v=8";
-import { copySessionCSV, shareResultImage } from "./export.js?v=8";
+import { copySessionCSV, shareResultImage } from "./export.js?v=15";
 import {
   buildLiveUrl,
   closeLiveRoom,
@@ -134,7 +134,7 @@ function switchSetupMode(mode) {
   $("singlesScheduleForm").classList.toggle("hidden", mode !== "singles");
   $("setupTitle").textContent = mode === "doubles" ? "生成双打赛程" : "生成单打轮转";
   $("setupDescription").textContent = mode === "doubles"
-    ? "先保证每人场次完全一致，再依次优化搭档、对手和连续出场。"
+    ? "支持6–8人任意男女比例；先保证场次公平，再优化搭档、对手和连续出场。"
     : "4人单循环，每两人交手一次，每人3场，并减少连续出场。";
   renderPreview();
 }
@@ -177,9 +177,12 @@ function renderPreview() {
     .filter(([, count]) => count > 0)
     .map(([type, count]) => `${MATCH_TYPE_LABELS[type]} ${count} 场`)
     .join("＋");
+  const hasCrossTypeMatch = preview.result.plan.allowedTypes.some(type =>
+    type === "mixedMens" || type === "mixedWomens"
+  );
   panel.append(element("p", "note", singles
     ? `轮转规则：${quotaText}，每两人交手一次。`
-    : `比赛配额：${quotaText}；随机种子：${preview.result.seed}`));
+    : `比赛配额：${quotaText}${hasCrossTypeMatch ? "；跨类型对阵可现场自行约定让分" : ""}；随机种子：${preview.result.seed}`));
 
   preview.result.matches.forEach(match => {
     const row = element("div", "preview-match");
@@ -889,7 +892,7 @@ window.addEventListener("beforeunload", () => {
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
-      const registration = await navigator.serviceWorker.register("./sw.js?v=14", { updateViaCache: "none" });
+      const registration = await navigator.serviceWorker.register("./sw.js?v=15", { updateViaCache: "none" });
       await registration.update();
     } catch (error) {
       console.warn("Service Worker 更新失败：", error);

@@ -53,7 +53,7 @@ export function createSession({ name, players, scheduleResult }) {
       allowedTypes: scheduleResult.plan.allowedTypes,
       typeQuotas: scheduleResult.plan.typeQuotas,
       seed: scheduleResult.seed,
-      algorithmVersion: "2.0.0",
+      algorithmVersion: "2.1.0",
       quality: scheduleResult.quality
     },
     matches: scheduleResult.matches,
@@ -75,7 +75,14 @@ export function teamName(session, team) {
 }
 
 export function matchTypeLabel(type) {
-  return { mens: "男双", womens: "女双", mixed: "混双", singles: "单打" }[type] || type;
+  return {
+    mens: "男双",
+    womens: "女双",
+    mixed: "混双",
+    mixedMens: "混双 vs 男双",
+    mixedWomens: "混双 vs 女双",
+    singles: "单打"
+  }[type] || type;
 }
 
 export function validFinalScore(score, rule) {

@@ -1,5 +1,5 @@
 import { calculateRanking } from "./ranking.js?v=8";
-import { formatDuration, matchTypeLabel, teamName } from "./model.js?v=8";
+import { formatDuration, matchTypeLabel, teamName } from "./model.js?v=15";
 
 export function buildCSV(session) {
   const rows = [["场次", "类型", "对阵", "比分", "用时", "状态"]];

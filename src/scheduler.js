@@ -2,6 +2,8 @@ export const MATCH_TYPE_LABELS = {
   mens: "男双",
   womens: "女双",
   mixed: "混双",
+  mixedMens: "混双 vs 男双",
+  mixedWomens: "混双 vs 女双",
   singles: "单打"
 };
 
@@ -60,21 +62,6 @@ function validateRoster(players) {
 
   const maleCount = players.filter(player => player.gender === "male").length;
   const femaleCount = players.filter(player => player.gender === "female").length;
-  const signature = `${maleCount}-${femaleCount}`;
-
-  if (players.length === 6 && !["3-3", "4-2", "2-4"].includes(signature)) {
-    throw new Error("6人赛目前支持 3男3女、4男2女或2男4女。");
-  }
-  if (players.length === 7 && !["4-3", "3-4"].includes(signature)) {
-    if (["5-2", "2-5"].includes(signature)) {
-      throw new Error("暂不支持 5男2女或2男5女。");
-    }
-    throw new Error("7人赛目前支持 4男3女或3男4女。");
-  }
-  if (players.length === 8 && maleCount > 0 && femaleCount > 0 && Math.min(maleCount, femaleCount) < 2) {
-    throw new Error("标准混双每场需要至少2名男生和2名女生，当前8人性别组合无法公平排赛。");
-  }
-
   return { maleCount, femaleCount };
 }
 
@@ -92,6 +79,22 @@ function calculatePlanForGames(players, games) {
   } else if (maleCount === 0) {
     typeQuotas.womens = games;
     allowedTypes = ["womens"];
+  } else if (femaleCount === 1) {
+    const mixedMens = femaleCount * targetAppearances;
+    const mens = games - mixedMens;
+    if (!Number.isInteger(mens) || mens < 0) return null;
+    if (4 * mens + 3 * mixedMens !== maleCount * targetAppearances) return null;
+    typeQuotas.mens = mens;
+    typeQuotas.mixedMens = mixedMens;
+    allowedTypes = ["mens", "mixedMens"];
+  } else if (maleCount === 1) {
+    const mixedWomens = maleCount * targetAppearances;
+    const womens = games - mixedWomens;
+    if (!Number.isInteger(womens) || womens < 0) return null;
+    if (4 * womens + 3 * mixedWomens !== femaleCount * targetAppearances) return null;
+    typeQuotas.womens = womens;
+    typeQuotas.mixedWomens = mixedWomens;
+    allowedTypes = ["womens", "mixedWomens"];
   } else if (maleCount === femaleCount) {
     typeQuotas.mixed = games;
     allowedTypes = ["mixed"];
@@ -182,6 +185,22 @@ function makeMixedMatches(males, females) {
   return result;
 }
 
+function makeMixedVsSameGenderMatches(majority, minority, type) {
+  const result = [];
+  for (const majorityGroup of combinations(majority, 3)) {
+    for (const minorityPlayer of minority) {
+      majorityGroup.forEach((mixedPartner, partnerIndex) => {
+        const sameGenderTeam = majorityGroup.filter((_, index) => index !== partnerIndex);
+        result.push(makeCandidate(type, [
+          [mixedPartner, minorityPlayer],
+          sameGenderTeam
+        ]));
+      });
+    }
+  }
+  return result;
+}
+
 function makeCandidate(type, teams) {
   const teamIds = teams.map(team => team.map(player => player.id));
   const participants = teamIds.flat();
@@ -206,10 +225,16 @@ function makeCandidate(type, teams) {
 function generateCandidates(players, allowedTypes) {
   const males = players.filter(player => player.gender === "male");
   const females = players.filter(player => player.gender === "female");
-  const byType = { mens: [], womens: [], mixed: [] };
+  const byType = { mens: [], womens: [], mixed: [], mixedMens: [], mixedWomens: [] };
   if (allowedTypes.includes("mens")) byType.mens = makeSameGenderMatches(males, "mens");
   if (allowedTypes.includes("womens")) byType.womens = makeSameGenderMatches(females, "womens");
   if (allowedTypes.includes("mixed")) byType.mixed = makeMixedMatches(males, females);
+  if (allowedTypes.includes("mixedMens")) {
+    byType.mixedMens = makeMixedVsSameGenderMatches(males, females, "mixedMens");
+  }
+  if (allowedTypes.includes("mixedWomens")) {
+    byType.mixedWomens = makeMixedVsSameGenderMatches(females, males, "mixedWomens");
+  }
   return byType;
 }
 
@@ -371,7 +396,14 @@ function searchOne(players, plan, candidates, rng, nodeLimit, branchLimit) {
 export function validateSchedule(schedule, players, plan) {
   const errors = [];
   const counts = new Map(players.map(player => [player.id, 0]));
-  const quotas = { mens: 0, womens: 0, mixed: 0, singles: 0 };
+  const quotas = {
+    mens: 0,
+    womens: 0,
+    mixed: 0,
+    mixedMens: 0,
+    mixedWomens: 0,
+    singles: 0
+  };
   const genders = new Map(players.map(player => [player.id, player.gender]));
 
   if (schedule.length !== plan.matchCount) errors.push("比赛场数不正确");
@@ -393,6 +425,18 @@ export function validateSchedule(schedule, players, plan) {
         return teamGenders === "female,male";
       });
       if (!valid) errors.push(`第${index + 1}场混双组合不合法`);
+    } else if (match.type === "mixedMens" || match.type === "mixedWomens") {
+      const majorityGender = match.type === "mixedMens" ? "male" : "female";
+      const teamGenders = match.teams
+        .map(team => team.map(id => genders.get(id)).sort().join(","))
+        .sort();
+      const expected = [
+        "female,male",
+        `${majorityGender},${majorityGender}`
+      ].sort();
+      if (teamGenders.join("|") !== expected.join("|")) {
+        errors.push(`第${index + 1}场${MATCH_TYPE_LABELS[match.type]}组合不合法`);
+      }
     } else {
       const expected = match.type === "mens" ? "male" : "female";
       if (participants.some(id => genders.get(id) !== expected)) {
