@@ -11,9 +11,62 @@
   <title>YJUN羽毛球管理工具</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icon-180.png">
-  <link rel="stylesheet" href="./assets/app.css?v=8">
+  <link rel="stylesheet" href="./assets/app.css?v=9">
 </head>
 <body>
+  <main class="live-app hidden" id="liveView">
+    <header class="live-topbar">
+      <div>
+        <span class="live-label">● 实时观战</span>
+        <h1 id="liveSessionName">正在连接比赛</h1>
+        <p id="liveStatusText">正在读取主持人的最新记录…</p>
+      </div>
+      <span class="live-readonly">只读</span>
+    </header>
+
+    <section class="live-current panel" id="liveCurrentPanel">
+      <div class="live-progress-row">
+        <strong id="liveProgressText">等待比赛数据</strong>
+        <span id="liveUpdatedAt"></span>
+      </div>
+      <div class="match-head">
+        <span class="badge" id="liveRoundBadge">—</span>
+        <span class="match-type" id="liveTypeText"></span>
+      </div>
+      <div class="teams live-teams">
+        <div class="team" id="liveLeftTeam">—</div>
+        <div class="versus">VS</div>
+        <div class="team" id="liveRightTeam">—</div>
+      </div>
+      <div class="live-score" id="liveScoreBlock">
+        <strong id="liveScoreA">0</strong>
+        <span>:</span>
+        <strong id="liveScoreB">0</strong>
+      </div>
+      <p class="live-score-message hidden" id="liveScoreMessage">本场未录入比分</p>
+      <div class="timer" id="liveTimer">00:00</div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <h2>实时排名</h2>
+        <span class="live-section-meta" id="liveRankingStatus">等待有效比分</span>
+      </div>
+      <div class="ranking-head">
+        <span>名次</span><span>队员</span><span>胜</span><span>负</span><span>净胜分</span>
+      </div>
+      <div id="liveRankingList"></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <h2>全部赛程</h2>
+        <span class="live-section-meta">由主持人更新</span>
+      </div>
+      <div class="round-list" id="liveRoundList"></div>
+    </section>
+  </main>
+
   <main class="app">
     <header class="topbar">
       <div>
@@ -84,6 +137,28 @@
     <section class="view" id="scoreView">
       <div id="scoreEmpty" class="empty panel">请先生成或从历史中打开一个活动。</div>
       <div id="scoreContent" class="hidden">
+        <section class="live-share-panel">
+          <div class="live-share-head">
+            <div>
+              <strong>📡 大家实时看</strong>
+              <span id="liveShareStatus">未开启，只保存在你的手机</span>
+            </div>
+            <button type="button" class="small-btn" id="startLiveBtn">开启共享</button>
+          </div>
+          <div class="live-share-details hidden" id="liveShareDetails">
+            <div class="live-room-code">
+              <span>观战房间</span>
+              <strong id="liveRoomCode"></strong>
+            </div>
+            <p id="liveShareLink"></p>
+            <div class="live-share-actions">
+              <button type="button" id="copyLiveBtn">复制链接</button>
+              <button type="button" id="systemShareLiveBtn">发给朋友</button>
+              <button type="button" class="danger" id="stopLiveBtn">结束共享</button>
+            </div>
+          </div>
+        </section>
+
         <section class="progress-panel">
           <div class="progress-row">
             <strong id="progressText"></strong>
@@ -202,6 +277,6 @@
   </nav>
 
   <div class="toast" id="toast"></div>
-  <script type="module" src="./src/app.js?v=8"></script>
+  <script type="module" src="./src/app.js?v=12"></script>
 </body>
 </html>
