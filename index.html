@@ -11,7 +11,7 @@
   <title>YJUN羽毛球管理工具</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icon-180.png">
-  <link rel="stylesheet" href="./assets/app.css?v=15">
+  <link rel="stylesheet" href="./assets/app.css?v=16">
 </head>
 <body>
   <main class="live-app hidden" id="liveView">
@@ -92,9 +92,17 @@
           <span>活动名称</span>
           <input id="doublesSessionName" maxlength="40" placeholder="例如：周末双打">
         </label>
-        <div class="relay-tip">
-          <strong>📋 复制接龙</strong>
-          <span>男、女名单分别整段粘贴，序号和接龙说明会自动去除。</span>
+        <div class="grouped-relay">
+          <div class="relay-tip">
+            <strong>📋 粘贴完整接龙，自动分男女</strong>
+            <span>自动忽略活动说明、等级和分组标题，并按 🌿 男、🎀 女填入名单。</span>
+          </div>
+          <textarea id="groupedRosterInput" rows="6" placeholder="把微信里的整段活动接龙粘贴到这里，包括时间、地点、男双/混双分组和报名名单都可以。"></textarea>
+          <div class="grouped-relay-actions">
+            <button type="button" class="paste-roster-btn grouped-primary" id="pasteGroupedRosterBtn">从剪贴板读取并自动分组</button>
+            <button type="button" class="paste-roster-btn" id="applyGroupedRosterBtn">识别当前内容</button>
+          </div>
+          <p class="grouped-roster-status" id="groupedRosterStatus">尚未识别；也可以在下方分别粘贴男、女名单。</p>
         </div>
         <div class="roster-entry">
           <label>
@@ -294,6 +302,6 @@
   </nav>
 
   <div class="toast" id="toast"></div>
-  <script type="module" src="./src/app.js?v=16"></script>
+  <script type="module" src="./src/app.js?v=17"></script>
 </body>
 </html>

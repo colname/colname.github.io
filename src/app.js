@@ -1,5 +1,6 @@
 import { createPlayers, createSession, createSinglesPlayers, formatDuration, matchTypeLabel, playerMap, teamName } from "./model.js?v=15";
-import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js?v=16";
+import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js?v=17";
+import { parseGroupedRosterText } from "./roster.js?v=2";
 import { activeSession, loadStore, removeSession, saveStore, setActiveSession, upsertSession } from "./storage.js?v=8";
 import { calculateRanking } from "./ranking.js?v=8";
 import { copySessionCSV, shareResultImage } from "./export.js?v=15";
@@ -66,6 +67,57 @@ async function pasteRosterFromClipboard(targetId) {
     showToast(`已从接龙识别 ${count} 人`);
   } catch (error) {
     $(targetId).focus();
+    showToast(error?.message === "剪贴板是空的"
+      ? error.message
+      : "无法读取剪贴板，请长按输入框粘贴");
+  }
+}
+
+function applyGroupedRoster(value) {
+  const parsed = parseGroupedRosterText(value);
+  const recognized = parsed.males.length + parsed.females.length;
+  const total = recognized + parsed.unknown.length;
+  const status = $("groupedRosterStatus");
+
+  status.classList.remove("success", "warning");
+  if (total === 0) {
+    status.textContent = "没有识别到编号报名项，请确认复制了完整接龙。";
+    status.classList.add("warning");
+    showToast("没有识别到报名名单");
+    return;
+  }
+
+  $("malePlayers").value = parsed.males.join("\n");
+  $("femalePlayers").value = parsed.females.join("\n");
+  updateRosterCount(rosterFields[0]);
+  updateRosterCount(rosterFields[1]);
+
+  const groupSummary = Object.entries(parsed.groups)
+    .map(([name, count]) => `${name} ${count}人`)
+    .join("、");
+  const summary = [`男 ${parsed.males.length}人`, `女 ${parsed.females.length}人`];
+  if (groupSummary) summary.push(`原接龙分组：${groupSummary}`);
+  if (parsed.unknown.length) summary.push(`未识别性别：${parsed.unknown.join("、")}`);
+  const outsideRosterLimit = recognized < 6 || recognized > 8;
+  if (outsideRosterLimit) summary.push("当前一次轮转支持6–8人，请在下方保留本次上场人员");
+
+  status.textContent = summary.join(" · ");
+  status.classList.add(parsed.unknown.length || outsideRosterLimit ? "warning" : "success");
+  showToast(parsed.unknown.length
+    ? `已填入 ${recognized} 人，另有 ${parsed.unknown.length} 人需手动分组`
+    : outsideRosterLimit
+      ? `已导入 ${recognized} 人，请保留6–8人参加本次轮转`
+      : `已自动分组 ${recognized} 人`);
+}
+
+async function pasteGroupedRosterFromClipboard() {
+  try {
+    const value = await navigator.clipboard.readText();
+    if (!value.trim()) throw new Error("剪贴板是空的");
+    $("groupedRosterInput").value = value;
+    applyGroupedRoster(value);
+  } catch (error) {
+    $("groupedRosterInput").focus();
     showToast(error?.message === "剪贴板是空的"
       ? error.message
       : "无法读取剪贴板，请长按输入框粘贴");
@@ -829,6 +881,11 @@ rosterFields.forEach(field => {
 
 document.querySelectorAll("[data-paste-target]").forEach(button => {
   button.addEventListener("click", () => pasteRosterFromClipboard(button.dataset.pasteTarget));
+});
+
+$("pasteGroupedRosterBtn").addEventListener("click", pasteGroupedRosterFromClipboard);
+$("applyGroupedRosterBtn").addEventListener("click", () => {
+  applyGroupedRoster($("groupedRosterInput").value);
 });
 
 document.querySelectorAll(".bottom-tabs button").forEach(button => {
