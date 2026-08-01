@@ -1,3 +1,5 @@
+import { parseRosterText } from "./roster.js?v=1";
+
 export const MATCH_TYPE_LABELS = {
   mens: "男双",
   womens: "女双",
@@ -10,10 +12,7 @@ export const MATCH_TYPE_LABELS = {
 const GAME_OPTIONS = [6, 9, 12, 14, 15, 21];
 
 export function parseNames(value) {
-  return String(value || "")
-    .split(/[\s,，、;；]+/)
-    .map(name => name.trim())
-    .filter(Boolean);
+  return parseRosterText(value);
 }
 
 function createRng(seedText) {

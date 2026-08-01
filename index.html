@@ -11,7 +11,7 @@
   <title>YJUN羽毛球管理工具</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icon-180.png">
-  <link rel="stylesheet" href="./assets/app.css?v=14">
+  <link rel="stylesheet" href="./assets/app.css?v=15">
 </head>
 <body>
   <main class="live-app hidden" id="liveView">
@@ -92,14 +92,24 @@
           <span>活动名称</span>
           <input id="doublesSessionName" maxlength="40" placeholder="例如：周末双打">
         </label>
-        <label>
-          <span>男生姓名</span>
-          <textarea id="malePlayers" rows="3" placeholder="空格、逗号或换行分隔"></textarea>
-        </label>
-        <label>
-          <span>女生姓名</span>
-          <textarea id="femalePlayers" rows="3" placeholder="空格、逗号或换行分隔"></textarea>
-        </label>
+        <div class="relay-tip">
+          <strong>📋 复制接龙</strong>
+          <span>男、女名单分别整段粘贴，序号和接龙说明会自动去除。</span>
+        </div>
+        <div class="roster-entry">
+          <label>
+            <span class="roster-label">男生姓名 <b id="malePlayerCount">已识别 0 人</b></span>
+            <textarea id="malePlayers" rows="4" placeholder="例如：&#10;1、张三&#10;2、李四&#10;也支持空格、逗号或换行分隔"></textarea>
+          </label>
+          <button type="button" class="paste-roster-btn" data-paste-target="malePlayers">从剪贴板粘贴男生接龙</button>
+        </div>
+        <div class="roster-entry">
+          <label>
+            <span class="roster-label">女生姓名 <b id="femalePlayerCount">已识别 0 人</b></span>
+            <textarea id="femalePlayers" rows="4" placeholder="例如：&#10;1、王芳&#10;2、赵敏&#10;也支持空格、逗号或换行分隔"></textarea>
+          </label>
+          <button type="button" class="paste-roster-btn" data-paste-target="femalePlayers">从剪贴板粘贴女生接龙</button>
+        </div>
         <label>
           <span>比赛场数</span>
           <select id="matchCount">
@@ -120,10 +130,17 @@
           <span>活动名称</span>
           <input id="singlesSessionName" maxlength="40" placeholder="例如：四人单打轮转">
         </label>
-        <label>
-          <span>4名队员</span>
-          <textarea id="singlesPlayers" rows="4" placeholder="空格、逗号或换行分隔，必须正好4人"></textarea>
-        </label>
+        <div class="relay-tip">
+          <strong>📋 复制接龙</strong>
+          <span>整段粘贴报名接龙，自动识别4名队员。</span>
+        </div>
+        <div class="roster-entry">
+          <label>
+            <span class="roster-label">4名队员 <b id="singlesPlayerCount">已识别 0 / 4 人</b></span>
+            <textarea id="singlesPlayers" rows="5" placeholder="例如：&#10;单打报名接龙&#10;1、张三&#10;2、李四&#10;3、王五&#10;4、赵六"></textarea>
+          </label>
+          <button type="button" class="paste-roster-btn" data-paste-target="singlesPlayers">从剪贴板粘贴单打接龙</button>
+        </div>
         <div class="singles-rule">
           <strong>4人单循环 · 6场</strong>
           <span>每人3场，每两人交手一次，自动减少连续出场。</span>
@@ -277,6 +294,6 @@
   </nav>
 
   <div class="toast" id="toast"></div>
-  <script type="module" src="./src/app.js?v=15"></script>
+  <script type="module" src="./src/app.js?v=16"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 import { createPlayers, createSession, createSinglesPlayers, formatDuration, matchTypeLabel, playerMap, teamName } from "./model.js?v=15";
-import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js?v=15";
+import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js?v=16";
 import { activeSession, loadStore, removeSession, saveStore, setActiveSession, upsertSession } from "./storage.js?v=8";
 import { calculateRanking } from "./ranking.js?v=8";
 import { copySessionCSV, shareResultImage } from "./export.js?v=15";
@@ -40,6 +40,36 @@ function showToast(message) {
   $("toast").textContent = message;
   $("toast").classList.add("show");
   toastTimer = setTimeout(() => $("toast").classList.remove("show"), 1800);
+}
+
+const rosterFields = [
+  { inputId: "malePlayers", countId: "malePlayerCount" },
+  { inputId: "femalePlayers", countId: "femalePlayerCount" },
+  { inputId: "singlesPlayers", countId: "singlesPlayerCount", target: 4 }
+];
+
+function updateRosterCount({ inputId, countId, target }) {
+  const count = parseNames($(inputId).value).length;
+  $(countId).textContent = target
+    ? `已识别 ${count} / ${target} 人`
+    : `已识别 ${count} 人`;
+  return count;
+}
+
+async function pasteRosterFromClipboard(targetId) {
+  const field = rosterFields.find(item => item.inputId === targetId);
+  try {
+    const value = await navigator.clipboard.readText();
+    if (!value.trim()) throw new Error("剪贴板是空的");
+    $(targetId).value = value;
+    const count = updateRosterCount(field);
+    showToast(`已从接龙识别 ${count} 人`);
+  } catch (error) {
+    $(targetId).focus();
+    showToast(error?.message === "剪贴板是空的"
+      ? error.message
+      : "无法读取剪贴板，请长按输入框粘贴");
+  }
 }
 
 function vibrate(pattern = 15) {
@@ -791,6 +821,15 @@ $("singlesScheduleForm").addEventListener("submit", async event => {
 
 $("doublesModeBtn").addEventListener("click", () => switchSetupMode("doubles"));
 $("singlesModeBtn").addEventListener("click", () => switchSetupMode("singles"));
+
+rosterFields.forEach(field => {
+  $(field.inputId).addEventListener("input", () => updateRosterCount(field));
+  updateRosterCount(field);
+});
+
+document.querySelectorAll("[data-paste-target]").forEach(button => {
+  button.addEventListener("click", () => pasteRosterFromClipboard(button.dataset.pasteTarget));
+});
 
 document.querySelectorAll(".bottom-tabs button").forEach(button => {
   button.addEventListener("click", () => switchView(button.dataset.view));
