@@ -344,8 +344,8 @@ function renderScore() {
   $("progressBar").style.width = `${done / session.matches.length * 100}%`;
   $("roundBadge").textContent = `第 ${match.order} 场`;
   $("typeText").textContent = matchTypeLabel(match.type);
-  $("leftTeam").textContent = teamName(session, match.teams[0]);
-  $("rightTeam").textContent = teamName(session, match.teams[1]);
+  renderTeamPlayers($("leftTeam"), session, match.teams[0]);
+  renderTeamPlayers($("rightTeam"), session, match.teams[1]);
   const scoreRecorded = match.scoreRecorded !== false;
   $("scoreEntryIntro").classList.toggle("hidden", scoreRecorded);
   $("scoreEntryPanel").classList.toggle("hidden", !scoreRecorded);
@@ -491,8 +491,38 @@ function renderRanking(session) {
 function buildRankingPlayer(player) {
   const cell = element("span", "ranking-player");
   cell.append(element("span", "ranking-player-name", player.name));
-  if (player.level) cell.append(element("span", "player-level-pill", `${player.level}级`));
+  if (player.level) cell.append(element("span", `player-level-pill ${levelTone(player.level)}`, `${player.level}级`));
   return cell;
+}
+
+function levelTone(level) {
+  const value = Number(level);
+  if (value >= 4.5) return "level-elite";
+  if (value >= 3.5) return "level-advanced";
+  if (value >= 2.5) return "level-intermediate";
+  return "level-starter";
+}
+
+function buildTeamPlayers(session, team, className = "team-player-list") {
+  const players = playerMap(session);
+  const list = element("span", className);
+  team.forEach((id, index) => {
+    const player = players.get(id);
+    const item = element("span", "team-player");
+    if (index > 0) item.append(element("span", "team-player-plus", "＋"));
+    item.append(element("span", "team-player-name", player?.name || "未知队员"));
+    if (player?.level) {
+      const badge = element("span", `team-level-icon ${levelTone(player.level)}`, player.level);
+      badge.setAttribute("aria-label", `等级 ${player.level}`);
+      item.append(badge);
+    }
+    list.append(item);
+  });
+  return list;
+}
+
+function renderTeamPlayers(root, session, team) {
+  root.replaceChildren(buildTeamPlayers(session, team));
 }
 
 function renderQuality(session) {
@@ -556,8 +586,8 @@ function buildResultRoundCard(session, match, { interactive = false, current = f
   const matchup = element("div", "result-matchup");
   const left = element("div", `result-side${leftWon ? " winner" : ""}`);
   const right = element("div", `result-side${rightWon ? " winner" : ""}`);
-  left.append(element("span", "result-team-name", teamName(session, match.teams[0])));
-  right.append(element("span", "result-team-name", teamName(session, match.teams[1])));
+  left.append(buildTeamPlayers(session, match.teams[0], "result-team-name team-player-list"));
+  right.append(buildTeamPlayers(session, match.teams[1], "result-team-name team-player-list"));
 
   if (recorded) {
     left.append(element("strong", "result-score", String(scoreA)));
@@ -624,8 +654,8 @@ function renderLiveViewer(room = liveRoomData) {
 
   $("liveRoundBadge").textContent = `第 ${match.order} 场`;
   $("liveTypeText").textContent = matchTypeLabel(match.type);
-  $("liveLeftTeam").textContent = teamName(session, match.teams[0]);
-  $("liveRightTeam").textContent = teamName(session, match.teams[1]);
+  renderTeamPlayers($("liveLeftTeam"), session, match.teams[0]);
+  renderTeamPlayers($("liveRightTeam"), session, match.teams[1]);
   const recorded = match.scoreRecorded !== false;
   $("liveScoreBlock").classList.toggle("hidden", !recorded);
   $("liveScoreMessage").classList.toggle("hidden", recorded);
