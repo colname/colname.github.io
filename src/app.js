@@ -1,4 +1,4 @@
-import { createPlayers, createSession, createSinglesPlayers, formatDuration, matchTypeLabel, playerMap, teamName } from "./model.js?v=16";
+import { createPlayers, createSession, createSinglesPlayers, formatDuration, matchTypeLabel, playerMap } from "./model.js?v=16";
 import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js?v=18";
 import { formatRosterEntry, parseGroupedRosterText, parseRosterEntries } from "./roster.js?v=3";
 import { activeSession, loadStore, removeSession, saveStore, setActiveSession, upsertSession } from "./storage.js?v=8";
@@ -307,8 +307,14 @@ function renderPreview() {
   preview.result.matches.forEach(match => {
     const row = element("div", "preview-match");
     row.append(element("span", "round-number", `第${match.order}场`));
-    row.append(element("span", "match-line",
-      `${teamName({ players: preview.players }, match.teams[0])} vs ${teamName({ players: preview.players }, match.teams[1])}`));
+    const matchup = element("div", "preview-matchup");
+    const previewSession = { players: preview.players };
+    matchup.append(
+      buildTeamPlayers(previewSession, match.teams[0], "preview-team team-player-list"),
+      element("span", "preview-vs", "VS"),
+      buildTeamPlayers(previewSession, match.teams[1], "preview-team team-player-list")
+    );
+    row.append(matchup);
     row.append(element("span", "type-pill", matchTypeLabel(match.type)));
     panel.append(row);
   });
