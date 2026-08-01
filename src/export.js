@@ -62,6 +62,123 @@ function fitText(ctx, text, maxWidth) {
   return `${result}…`;
 }
 
+function levelColor(level) {
+  const value = Number(level);
+  if (value >= 4.5) return "#e879f9";
+  if (value >= 3.5) return "#fbbf24";
+  if (value >= 2.5) return "#4ade80";
+  return "#38bdf8";
+}
+
+function drawSchedulePlayer(ctx, player, centerX, baselineY, maxWidth) {
+  const level = String(player?.level || "");
+  ctx.font = '750 29px -apple-system,"PingFang SC",sans-serif';
+  const badgeWidth = level ? 72 : 0;
+  const badgeGap = level ? 10 : 0;
+  const name = fitText(ctx, player?.name || "未知队员", maxWidth - badgeWidth - badgeGap);
+  const nameWidth = ctx.measureText(name).width;
+  const totalWidth = nameWidth + badgeGap + badgeWidth;
+  const startX = centerX - totalWidth / 2;
+
+  ctx.fillStyle = "#f8fafc";
+  ctx.textAlign = "left";
+  ctx.fillText(name, startX, baselineY);
+  if (!level) return;
+
+  const badgeX = startX + nameWidth + badgeGap;
+  roundedRect(ctx, badgeX, baselineY - 27, badgeWidth, 32, 11, levelColor(level));
+  ctx.fillStyle = "#06111e";
+  ctx.font = '900 18px -apple-system,"PingFang SC",sans-serif';
+  ctx.textAlign = "center";
+  ctx.fillText(level, badgeX + badgeWidth / 2, baselineY - 5);
+}
+
+function drawScheduleTeam(ctx, players, centerX, centerY) {
+  const lineGap = 43;
+  const firstY = centerY - (players.length - 1) * lineGap / 2;
+  players.forEach((player, index) => {
+    drawSchedulePlayer(ctx, player, centerX, firstY + index * lineGap, 405);
+  });
+}
+
+export function createScheduleCanvas(session) {
+  const width = 1242;
+  const matchCardHeight = 176;
+  const headerHeight = 254;
+  const footerHeight = 96;
+  const height = headerHeight + session.matches.length * matchCardHeight + footerHeight;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  const gradient = ctx.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, "#06111f");
+  gradient.addColorStop(.52, "#0a1d30");
+  gradient.addColorStop(1, "#071523");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = "#7dd3fc";
+  ctx.font = '850 23px -apple-system,"PingFang SC",sans-serif';
+  ctx.fillText("YJUN BADMINTON · 赛程分享", 58, 48);
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = '900 52px -apple-system,"PingFang SC",sans-serif';
+  ctx.fillText(fitText(ctx, session.name || "羽毛球活动", width - 116), 58, 112);
+
+  const singles = session.scheduleConfig?.mode === "singles" ||
+    session.scheduleConfig?.allowedTypes?.includes("singles");
+  const facts = [singles ? "单打轮转" : "双打轮转", `${session.players.length}人`, `${session.matches.length}场`];
+  let factX = 58;
+  facts.forEach((fact, index) => {
+    ctx.font = '800 21px -apple-system,"PingFang SC",sans-serif';
+    const factWidth = ctx.measureText(fact).width + 34;
+    roundedRect(ctx, factX, 145, factWidth, 42, 20, index === 0 ? "#0e7490" : "#17344e");
+    ctx.fillStyle = "#e0f2fe";
+    ctx.textAlign = "center";
+    ctx.fillText(fact, factX + factWidth / 2, 173);
+    factX += factWidth + 12;
+  });
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = '500 21px -apple-system,"PingFang SC",sans-serif';
+  ctx.fillText("按场次顺序进行比赛 · 等级颜色与网页一致", 58, 222);
+
+  const players = new Map(session.players.map(player => [player.id, player]));
+  session.matches.forEach((match, index) => {
+    const cardY = headerHeight + index * matchCardHeight;
+    roundedRect(ctx, 42, cardY + 8, width - 84, matchCardHeight - 16, 22,
+      index % 2 ? "#0d1b2d" : "#11243a");
+    roundedRect(ctx, 62, cardY + 28, 104, 38, 17, "#075985");
+    ctx.fillStyle = "#e0f2fe";
+    ctx.font = '850 20px -apple-system,"PingFang SC",sans-serif';
+    ctx.textAlign = "center";
+    ctx.fillText(`第${match.order}场`, 114, cardY + 54);
+
+    const type = matchTypeLabel(match.type);
+    ctx.font = '750 19px -apple-system,"PingFang SC",sans-serif';
+    const typeWidth = Math.max(92, ctx.measureText(type).width + 30);
+    roundedRect(ctx, width - 62 - typeWidth, cardY + 28, typeWidth, 38, 18, "#17344e");
+    ctx.fillStyle = "#bae6fd";
+    ctx.fillText(type, width - 62 - typeWidth / 2, cardY + 54);
+
+    ctx.fillStyle = "#64748b";
+    ctx.font = '950 23px -apple-system,"PingFang SC",sans-serif';
+    ctx.fillText("VS", width / 2, cardY + 108);
+    drawScheduleTeam(ctx, match.teams[0].map(id => players.get(id)), 348, cardY + 112);
+    drawScheduleTeam(ctx, match.teams[1].map(id => players.get(id)), 894, cardY + 112);
+  });
+
+  const footerY = height - footerHeight;
+  ctx.fillStyle = "#64748b";
+  ctx.font = '550 20px -apple-system,"PingFang SC",sans-serif';
+  ctx.textAlign = "left";
+  ctx.fillText("生成于 colname.github.io", 58, footerY + 54);
+  ctx.textAlign = "right";
+  ctx.fillText(new Date().toLocaleString("zh-CN", { hour12: false }), width - 58, footerY + 54);
+  ctx.textAlign = "left";
+  return canvas;
+}
+
 export function createResultCanvas(session) {
   const { ranking, validMatches } = calculateRanking(session);
   const width = 1242;
@@ -178,12 +295,27 @@ export function createResultCanvas(session) {
 }
 
 export async function shareResultImage(session) {
-  const canvas = createResultCanvas(session);
+  return shareCanvas(createResultCanvas(session), {
+    fileName: `${session.name}-比赛记录.png`,
+    title: session.name,
+    text: "比赛结果与个人排名"
+  });
+}
+
+export async function shareScheduleImage(session) {
+  return shareCanvas(createScheduleCanvas(session), {
+    fileName: `${session.name}-赛程.png`,
+    title: `${session.name} · 赛程`,
+    text: "羽毛球比赛赛程"
+  });
+}
+
+async function shareCanvas(canvas, { fileName, title, text }) {
   const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png", 1));
   if (!blob) throw new Error("图片生成失败");
-  const file = new File([blob], `${session.name}-比赛记录.png`, { type: "image/png" });
+  const file = new File([blob], fileName, { type: "image/png" });
   if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ title: session.name, text: "比赛结果与个人排名", files: [file] });
+    await navigator.share({ title, text, files: [file] });
     return "shared";
   }
   const url = URL.createObjectURL(blob);

@@ -3,7 +3,7 @@ import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseName
 import { formatRosterEntry, parseGroupedRosterText, parseRosterEntries } from "./roster.js?v=3";
 import { activeSession, loadStore, removeSession, saveStore, setActiveSession, upsertSession } from "./storage.js?v=8";
 import { calculateRanking } from "./ranking.js?v=9";
-import { copySessionCSV, shareResultImage } from "./export.js?v=16";
+import { copySessionCSV, shareResultImage, shareScheduleImage } from "./export.js?v=17";
 import {
   buildLiveUrl,
   closeLiveRoom,
@@ -41,6 +41,16 @@ function showToast(message) {
   $("toast").textContent = message;
   $("toast").classList.add("show");
   toastTimer = setTimeout(() => $("toast").classList.remove("show"), 1800);
+}
+
+async function shareSchedule(session) {
+  try {
+    showToast("正在生成赛程图…");
+    const result = await shareScheduleImage(session);
+    showToast(result === "shared" ? "已打开系统分享" : "赛程PNG图片已生成");
+  } catch (error) {
+    if (error?.name !== "AbortError") showToast(error.message || "赛程图分享失败");
+  }
 }
 
 const rosterFields = [
@@ -319,6 +329,19 @@ function renderPreview() {
     panel.append(row);
   });
 
+  const share = element("button", "share-schedule-btn", "↗ 分享赛程图");
+  share.type = "button";
+  share.addEventListener("click", async () => {
+    share.disabled = true;
+    await shareSchedule({
+      name: preview.name.trim() || `${new Date().toLocaleDateString("zh-CN")} 羽毛球`,
+      players: preview.players,
+      matches: preview.result.matches,
+      scheduleConfig: preview.result.plan
+    });
+    share.disabled = false;
+  });
+
   const confirm = element("button", "primary-btn", "确认赛程并开始计分");
   confirm.type = "button";
   confirm.addEventListener("click", () => {
@@ -333,7 +356,9 @@ function renderPreview() {
     showToast("活动已保存，可以开始计分");
     switchView("score");
   });
-  panel.append(confirm);
+  const actions = element("div", "preview-actions");
+  actions.append(share, confirm);
+  panel.append(actions);
   root.append(panel);
 }
 
@@ -1035,6 +1060,10 @@ $("shareBtn").addEventListener("click", async () => {
   } catch (error) {
     if (error?.name !== "AbortError") showToast(error.message || "分享失败");
   }
+});
+$("shareScheduleBtn").addEventListener("click", async () => {
+  const session = currentSession();
+  if (session) await shareSchedule(session);
 });
 const swipeArea = $("swipeArea");
 swipeArea.addEventListener("touchstart", event => {

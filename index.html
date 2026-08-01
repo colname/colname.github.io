@@ -11,7 +11,7 @@
   <title>YJUN羽毛球管理工具</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icon-180.png">
-  <link rel="stylesheet" href="./assets/app.css?v=19">
+  <link rel="stylesheet" href="./assets/app.css?v=20">
 </head>
 <body>
   <main class="live-app hidden" id="liveView">
@@ -270,7 +270,7 @@
               <h2>个人排名</h2>
               <span id="rankingStatus"></span>
             </div>
-            <button class="small-btn" id="shareBtn">分享图片</button>
+            <button class="small-btn" id="shareBtn">分享成绩图</button>
           </div>
           <div class="ranking-head">
             <span>名次</span><span>队员</span><span>胜</span><span>负</span><span>净胜分</span>
@@ -284,7 +284,10 @@
         <section class="panel">
           <div class="section-head">
             <h2>全部赛程</h2>
-            <button class="small-btn" id="copyBtn">复制记录</button>
+            <div class="section-actions">
+              <button class="small-btn" id="shareScheduleBtn">分享赛程图</button>
+              <button class="small-btn" id="copyBtn">复制记录</button>
+            </div>
           </div>
           <div class="round-list" id="roundList"></div>
         </section>
@@ -310,6 +313,6 @@
   </nav>
 
   <div class="toast" id="toast"></div>
-  <script type="module" src="./src/app.js?v=20"></script>
+  <script type="module" src="./src/app.js?v=21"></script>
 </body>
 </html>
