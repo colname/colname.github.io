@@ -125,8 +125,35 @@ test("4人单打生成6场单循环，每人3场且每组只交手一次", () =>
   assert.equal(result.quality.tripleStreaks, 0);
 });
 
-test("单打拒绝非4人和重复姓名", () => {
-  assert.throws(() => generateSinglesSchedule(roster(3, 0)), /正好输入4名/);
+test("5人单打生成10场单循环，每人4场且每组只交手一次", () => {
+  const players = roster(5, 0).map((player, index) => ({
+    ...player,
+    id: `f${index + 1}`,
+    name: `F${index + 1}`,
+    gender: "unspecified"
+  }));
+  const result = generateSinglesSchedule(players, "five-singles-test");
+  assert.equal(result.plan.matchCount, 10);
+  assert.equal(result.plan.targetAppearances, 4);
+  assert.equal(validateSchedule(result.matches, players, result.plan).valid, true);
+
+  const appearances = Object.fromEntries(players.map(player => [player.id, 0]));
+  const pairs = new Set();
+  result.matches.forEach(match => {
+    const [left, right] = match.teams.flat();
+    appearances[left] += 1;
+    appearances[right] += 1;
+    pairs.add([left, right].sort().join("|"));
+  });
+  assert.deepEqual(Object.values(appearances), [4, 4, 4, 4, 4]);
+  assert.equal(pairs.size, 10);
+  assert.equal(result.quality.maxStreak, 2);
+  assert.equal(result.quality.tripleStreaks, 0);
+});
+
+test("单打拒绝4至5人以外的名单和重复姓名", () => {
+  assert.throws(() => generateSinglesSchedule(roster(3, 0)), /4名或5名/);
+  assert.throws(() => generateSinglesSchedule(roster(6, 0)), /4名或5名/);
   const players = roster(4, 0);
   players[1].name = players[0].name;
   assert.throws(() => generateSinglesSchedule(players), /姓名不能重复/);

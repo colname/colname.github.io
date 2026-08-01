@@ -456,16 +456,18 @@ export function validateSchedule(schedule, players, plan) {
 }
 
 export function generateSinglesSchedule(players, seed = "singles-round-robin") {
-  if (players.length !== 4) {
-    throw new Error("单打轮转必须正好输入4名队员。");
+  if (![4, 5].includes(players.length)) {
+    throw new Error("单打轮转必须输入4名或5名队员。");
   }
   const normalized = players.map(player => player.name.trim().toLocaleLowerCase("zh-CN"));
-  if (new Set(normalized).size !== 4) {
-    throw new Error("4名单打队员的姓名不能重复。");
+  if (new Set(normalized).size !== players.length) {
+    throw new Error("单打队员的姓名不能重复。");
   }
 
-  // 三组互补对阵相邻排列，使6场单循环中的连续出场降到理论最低。
-  const order = [[0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]];
+  // 互补对阵相邻排列，使4人或5人单循环中的连续出场降到最低。
+  const order = players.length === 4
+    ? [[0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]]
+    : [[1, 4], [2, 3], [0, 4], [1, 2], [0, 3], [4, 2], [0, 2], [3, 1], [0, 1], [3, 4]];
   const matches = order.map(([left, right], index) => ({
     id: `match_${index + 1}`,
     order: index + 1,
@@ -478,19 +480,21 @@ export function generateSinglesSchedule(players, seed = "singles-round-robin") {
     elapsedSeconds: 0,
     completedAt: null
   }));
+  const targetAppearances = players.length - 1;
+  const matchCount = order.length;
   const plan = {
     mode: "singles",
-    matchCount: 6,
-    targetAppearances: 3,
+    matchCount,
+    targetAppearances,
     allowedTypes: ["singles"],
-    typeQuotas: { singles: 6 }
+    typeQuotas: { singles: matchCount }
   };
-  const appearanceCounts = Object.fromEntries(players.map(player => [player.id, 3]));
+  const appearanceCounts = Object.fromEntries(players.map(player => [player.id, targetAppearances]));
   const quality = {
     objective: [0, 1, 0, 2],
     appearanceCounts,
     appearanceRange: 0,
-    targetAppearances: 3,
+    targetAppearances,
     partnerMax: 0,
     opponentMax: 1,
     maxStreak: 2,

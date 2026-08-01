@@ -148,18 +148,18 @@
             <button type="button" class="paste-roster-btn grouped-primary" id="pasteSinglesRosterBtn">从剪贴板读取并识别</button>
             <button type="button" class="paste-roster-btn" id="applySinglesRosterBtn">识别当前内容</button>
           </div>
-          <p class="grouped-roster-status" id="singlesRosterStatus">尚未识别；单打轮转需要正好4人。</p>
+          <p class="grouped-roster-status" id="singlesRosterStatus">尚未识别；单打轮转支持4人或5人。</p>
         </div>
         <div class="roster-entry">
           <label>
-            <span class="roster-label">4名队员 <b id="singlesPlayerCount">已识别 0 / 4 人</b></span>
-            <textarea id="singlesPlayers" rows="5" placeholder="例如：&#10;单打报名接龙&#10;1、张三&#10;2、李四&#10;3、王五&#10;4、赵六"></textarea>
+            <span class="roster-label">4–5名队员 <b id="singlesPlayerCount">已识别 0 / 4–5 人</b></span>
+            <textarea id="singlesPlayers" rows="6" placeholder="例如：&#10;单打报名接龙&#10;1、张三&#10;2、李四&#10;3、王五&#10;4、赵六&#10;5、钱七（五人轮转时填写）"></textarea>
           </label>
           <button type="button" class="paste-roster-btn" data-paste-target="singlesPlayers">从剪贴板粘贴单打接龙</button>
         </div>
         <div class="singles-rule">
-          <strong>4人单循环 · 6场</strong>
-          <span>每人3场，每两人交手一次，自动减少连续出场。</span>
+          <strong>4人6场 · 5人10场</strong>
+          <span>4人时每人3场，5人时每人4场；每两人交手一次，自动减少连续出场。</span>
         </div>
         <button class="primary-btn" type="submit" id="generateSinglesBtn">生成单打轮转</button>
       </form>
@@ -313,6 +313,6 @@
   </nav>
 
   <div class="toast" id="toast"></div>
-  <script type="module" src="./src/app.js?v=21"></script>
+  <script type="module" src="./src/app.js?v=22"></script>
 </body>
 </html>

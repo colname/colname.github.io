@@ -1,5 +1,5 @@
 import { createPlayers, createSession, createSinglesPlayers, formatDuration, matchTypeLabel, playerMap } from "./model.js?v=16";
-import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js?v=18";
+import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js?v=19";
 import { formatRosterEntry, parseGroupedRosterText, parseRosterEntries } from "./roster.js?v=3";
 import { activeSession, loadStore, removeSession, saveStore, setActiveSession, upsertSession } from "./storage.js?v=8";
 import { calculateRanking } from "./ranking.js?v=9";
@@ -56,13 +56,13 @@ async function shareSchedule(session) {
 const rosterFields = [
   { inputId: "malePlayers", countId: "malePlayerCount" },
   { inputId: "femalePlayers", countId: "femalePlayerCount" },
-  { inputId: "singlesPlayers", countId: "singlesPlayerCount", target: 4 }
+  { inputId: "singlesPlayers", countId: "singlesPlayerCount", targetLabel: "4–5" }
 ];
 
-function updateRosterCount({ inputId, countId, target }) {
+function updateRosterCount({ inputId, countId, target, targetLabel }) {
   const count = parseNames($(inputId).value).length;
-  $(countId).textContent = target
-    ? `已识别 ${count} / ${target} 人`
+  $(countId).textContent = target || targetLabel
+    ? `已识别 ${count} / ${targetLabel || target} 人`
     : `已识别 ${count} 人`;
   return count;
 }
@@ -151,11 +151,13 @@ function applySinglesRoster(value) {
   $("singlesPlayers").value = entries.map(formatRosterEntry).join("\n");
   updateRosterCount(rosterFields[2]);
   const withLevel = entries.filter(entry => entry.level).length;
-  status.textContent = entries.length === 4
-    ? `已识别4人，其中${withLevel}人带等级；等级会保留到赛程和成绩中。`
-    : `已识别${entries.length}人，其中${withLevel}人带等级；单打轮转需要正好4人，请在下方调整。`;
-  status.classList.add(entries.length === 4 ? "success" : "warning");
-  showToast(entries.length === 4 ? "已识别4名单打队员" : `已识别${entries.length}人，请保留4人`);
+  const validCount = entries.length === 4 || entries.length === 5;
+  const matchCount = entries.length === 4 ? 6 : 10;
+  status.textContent = validCount
+    ? `已识别${entries.length}人，其中${withLevel}人带等级；将生成${matchCount}场单循环。`
+    : `已识别${entries.length}人，其中${withLevel}人带等级；单打轮转需要4人或5人，请在下方调整。`;
+  status.classList.add(validCount ? "success" : "warning");
+  showToast(validCount ? `已识别${entries.length}名单打队员` : `已识别${entries.length}人，请保留4人或5人`);
 }
 
 async function pasteSinglesRosterFromClipboard() {
@@ -265,7 +267,7 @@ function switchSetupMode(mode) {
   $("setupTitle").textContent = mode === "doubles" ? "生成双打赛程" : "生成单打轮转";
   $("setupDescription").textContent = mode === "doubles"
     ? "支持6–8人任意男女比例；先保证场次公平，再优化搭档、对手和连续出场。"
-    : "4人单循环，每两人交手一次，每人3场，并减少连续出场。";
+    : "支持4人或5人单循环；每两人交手一次，并自动减少连续出场。";
   renderPreview();
 }
 
@@ -569,7 +571,7 @@ function renderQuality(session) {
     session.scheduleConfig.allowedTypes?.includes("singles");
   const items = singles
     ? [
-        ["比赛模式", "4人单打单循环"],
+        ["比赛模式", `${session.players.length}人单打单循环`],
         ["每人场次", `${quality.targetAppearances} 场`],
         ["每组交手", `${quality.opponentMax} 次`],
         ["最长连续出场", `${quality.maxStreak} 场`]

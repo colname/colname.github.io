@@ -1,4 +1,4 @@
-const CACHE_NAME = "yjun-badminton-v21";
+const CACHE_NAME = "yjun-badminton-v22";
 const OFFLINE_ASSETS = [
   "./",
   "./index.html",
@@ -6,9 +6,9 @@ const OFFLINE_ASSETS = [
   "./icon-180.png",
   "./icon-512.png",
   "./assets/app.css?v=20",
-  "./src/app.js?v=21",
+  "./src/app.js?v=22",
   "./src/model.js?v=16",
-  "./src/scheduler.js?v=18",
+  "./src/scheduler.js?v=19",
   "./src/roster.js?v=3",
   "./src/storage.js?v=8",
   "./src/ranking.js?v=9",
