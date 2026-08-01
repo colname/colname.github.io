@@ -1,5 +1,5 @@
-import { calculateRanking } from "./ranking.js?v=8";
-import { formatDuration, matchTypeLabel, teamName } from "./model.js?v=15";
+import { calculateRanking } from "./ranking.js?v=9";
+import { formatDuration, matchTypeLabel, teamName } from "./model.js?v=16";
 
 export function buildCSV(session) {
   const rows = [["场次", "类型", "对阵", "比分", "用时", "状态"]];
@@ -14,10 +14,11 @@ export function buildCSV(session) {
     ]);
   });
   const { ranking, validMatches } = calculateRanking(session);
-  rows.push([], ["个人排名"], ["排名", "队员", "场次", "胜", "负", "净胜分"]);
+  rows.push([], ["个人排名"], ["排名", "队员", "等级", "场次", "胜", "负", "净胜分"]);
   ranking.forEach(player => rows.push([
     validMatches ? player.rank : "",
     player.name,
+    player.level,
     player.played,
     player.wins,
     player.losses,
@@ -110,7 +111,15 @@ export function createResultCanvas(session) {
     ctx.textAlign = "left";
     ctx.fillStyle = isFirst ? "#d9ff70" : "#f8fafc";
     ctx.font = '750 29px -apple-system,"PingFang SC",sans-serif';
-    ctx.fillText(fitText(ctx, player.name, 490), 142, rowTop + 45);
+    ctx.fillText(fitText(ctx, player.name, player.level ? 360 : 490), 142, rowTop + 45);
+    if (player.level) {
+      roundedRect(ctx, 525, rowTop + 17, 118, 38, 18, isFirst ? "#d9ff70" : "#fbbf24");
+      ctx.fillStyle = "#07111f";
+      ctx.font = '850 20px -apple-system,"PingFang SC",sans-serif';
+      ctx.textAlign = "center";
+      ctx.fillText(`${player.level}级`, 584, rowTop + 43);
+      ctx.textAlign = "left";
+    }
     ctx.fillStyle = "#f8fafc";
     ctx.font = '700 27px -apple-system,"PingFang SC",sans-serif';
     ctx.fillText(`${player.wins}胜${player.losses}负`, 730, rowTop + 44);

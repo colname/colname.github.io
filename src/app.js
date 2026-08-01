@@ -1,9 +1,9 @@
-import { createPlayers, createSession, createSinglesPlayers, formatDuration, matchTypeLabel, playerMap, teamName } from "./model.js?v=15";
-import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js?v=17";
-import { parseGroupedRosterText } from "./roster.js?v=2";
+import { createPlayers, createSession, createSinglesPlayers, formatDuration, matchTypeLabel, playerMap, teamName } from "./model.js?v=16";
+import { generateSchedule, generateSinglesSchedule, MATCH_TYPE_LABELS, parseNames } from "./scheduler.js?v=18";
+import { formatRosterEntry, parseGroupedRosterText, parseRosterEntries } from "./roster.js?v=3";
 import { activeSession, loadStore, removeSession, saveStore, setActiveSession, upsertSession } from "./storage.js?v=8";
-import { calculateRanking } from "./ranking.js?v=8";
-import { copySessionCSV, shareResultImage } from "./export.js?v=15";
+import { calculateRanking } from "./ranking.js?v=9";
+import { copySessionCSV, shareResultImage } from "./export.js?v=16";
 import {
   buildLiveUrl,
   closeLiveRoom,
@@ -87,8 +87,8 @@ function applyGroupedRoster(value) {
     return;
   }
 
-  $("malePlayers").value = parsed.males.join("\n");
-  $("femalePlayers").value = parsed.females.join("\n");
+  $("malePlayers").value = parsed.maleEntries.map(formatRosterEntry).join("\n");
+  $("femalePlayers").value = parsed.femaleEntries.map(formatRosterEntry).join("\n");
   updateRosterCount(rosterFields[0]);
   updateRosterCount(rosterFields[1]);
 
@@ -96,6 +96,9 @@ function applyGroupedRoster(value) {
     .map(([name, count]) => `${name} ${count}人`)
     .join("、");
   const summary = [`男 ${parsed.males.length}人`, `女 ${parsed.females.length}人`];
+  const withLevel = [...parsed.maleEntries, ...parsed.femaleEntries]
+    .filter(entry => entry.level).length;
+  if (withLevel) summary.push(`保留等级 ${withLevel}人`);
   if (groupSummary) summary.push(`原接龙分组：${groupSummary}`);
   if (parsed.unknown.length) summary.push(`未识别性别：${parsed.unknown.join("、")}`);
   const outsideRosterLimit = recognized < 6 || recognized > 8;
@@ -118,6 +121,41 @@ async function pasteGroupedRosterFromClipboard() {
     applyGroupedRoster(value);
   } catch (error) {
     $("groupedRosterInput").focus();
+    showToast(error?.message === "剪贴板是空的"
+      ? error.message
+      : "无法读取剪贴板，请长按输入框粘贴");
+  }
+}
+
+function applySinglesRoster(value) {
+  const entries = parseRosterEntries(value);
+  const status = $("singlesRosterStatus");
+  status.classList.remove("success", "warning");
+  if (entries.length === 0) {
+    status.textContent = "没有识别到编号报名项，请确认复制了完整接龙。";
+    status.classList.add("warning");
+    showToast("没有识别到报名名单");
+    return;
+  }
+
+  $("singlesPlayers").value = entries.map(formatRosterEntry).join("\n");
+  updateRosterCount(rosterFields[2]);
+  const withLevel = entries.filter(entry => entry.level).length;
+  status.textContent = entries.length === 4
+    ? `已识别4人，其中${withLevel}人带等级；等级会保留到赛程和成绩中。`
+    : `已识别${entries.length}人，其中${withLevel}人带等级；单打轮转需要正好4人，请在下方调整。`;
+  status.classList.add(entries.length === 4 ? "success" : "warning");
+  showToast(entries.length === 4 ? "已识别4名单打队员" : `已识别${entries.length}人，请保留4人`);
+}
+
+async function pasteSinglesRosterFromClipboard() {
+  try {
+    const value = await navigator.clipboard.readText();
+    if (!value.trim()) throw new Error("剪贴板是空的");
+    $("singlesRosterInput").value = value;
+    applySinglesRoster(value);
+  } catch (error) {
+    $("singlesRosterInput").focus();
     showToast(error?.message === "剪贴板是空的"
       ? error.message
       : "无法读取剪贴板，请长按输入框粘贴");
@@ -300,15 +338,14 @@ function renderScore() {
   if (!session) return;
   const match = currentMatch(session);
   if (!match) return;
-  const playerNames = playerMap(session);
   const done = session.matches.filter(item => item.status === "completed").length;
   $("progressText").textContent = `第 ${match.order} / ${session.matches.length} 场`;
   $("doneText").textContent = `已完成 ${done} 场`;
   $("progressBar").style.width = `${done / session.matches.length * 100}%`;
   $("roundBadge").textContent = `第 ${match.order} 场`;
   $("typeText").textContent = matchTypeLabel(match.type);
-  $("leftTeam").textContent = match.teams[0].map(id => playerNames.get(id)?.name).join("＋");
-  $("rightTeam").textContent = match.teams[1].map(id => playerNames.get(id)?.name).join("＋");
+  $("leftTeam").textContent = teamName(session, match.teams[0]);
+  $("rightTeam").textContent = teamName(session, match.teams[1]);
   const scoreRecorded = match.scoreRecorded !== false;
   $("scoreEntryIntro").classList.toggle("hidden", scoreRecorded);
   $("scoreEntryPanel").classList.toggle("hidden", !scoreRecorded);
@@ -442,13 +479,20 @@ function renderRanking(session) {
     const net = player.net > 0 ? `+${player.net}` : String(player.net);
     row.append(
       element("span", "", rank),
-      element("span", "", player.name),
+      buildRankingPlayer(player),
       element("span", "", String(player.wins)),
       element("span", "", String(player.losses)),
       element("span", player.net > 0 ? "positive" : player.net < 0 ? "negative" : "", net)
     );
     root.append(row);
   });
+}
+
+function buildRankingPlayer(player) {
+  const cell = element("span", "ranking-player");
+  cell.append(element("span", "ranking-player-name", player.name));
+  if (player.level) cell.append(element("span", "player-level-pill", `${player.level}级`));
+  return cell;
 }
 
 function renderQuality(session) {
@@ -578,11 +622,10 @@ function renderLiveViewer(room = liveRoomData) {
     : `共 ${session.matches.length} 场`;
   if (!match) return;
 
-  const players = playerMap(session);
   $("liveRoundBadge").textContent = `第 ${match.order} 场`;
   $("liveTypeText").textContent = matchTypeLabel(match.type);
-  $("liveLeftTeam").textContent = match.teams[0].map(id => players.get(id)?.name).join("＋");
-  $("liveRightTeam").textContent = match.teams[1].map(id => players.get(id)?.name).join("＋");
+  $("liveLeftTeam").textContent = teamName(session, match.teams[0]);
+  $("liveRightTeam").textContent = teamName(session, match.teams[1]);
   const recorded = match.scoreRecorded !== false;
   $("liveScoreBlock").classList.toggle("hidden", !recorded);
   $("liveScoreMessage").classList.toggle("hidden", recorded);
@@ -602,7 +645,7 @@ function renderLiveViewer(room = liveRoomData) {
     const net = player.net > 0 ? `+${player.net}` : String(player.net);
     row.append(
       element("span", "", rank),
-      element("span", "", player.name),
+      buildRankingPlayer(player),
       element("span", "", String(player.wins)),
       element("span", "", String(player.losses)),
       element("span", player.net > 0 ? "positive" : player.net < 0 ? "negative" : "", net)
@@ -846,9 +889,9 @@ $("doublesScheduleForm").addEventListener("submit", async event => {
     loadingText: "正在计算双打赛程…",
     idleText: "生成双打赛程",
     create: () => {
-      const maleNames = parseNames($("malePlayers").value);
-      const femaleNames = parseNames($("femalePlayers").value);
-      const players = createPlayers(maleNames, femaleNames);
+      const maleEntries = parseRosterEntries($("malePlayers").value);
+      const femaleEntries = parseRosterEntries($("femalePlayers").value);
+      const players = createPlayers(maleEntries, femaleEntries);
       const seed = `${Date.now()}-${players.map(player => player.name).join("-")}`;
       const result = generateSchedule(players, $("matchCount").value, seed);
       return { mode: "doubles", name: $("doublesSessionName").value, players, result };
@@ -863,7 +906,7 @@ $("singlesScheduleForm").addEventListener("submit", async event => {
     loadingText: "正在生成单打轮转…",
     idleText: "生成单打轮转",
     create: () => {
-      const players = createSinglesPlayers(parseNames($("singlesPlayers").value));
+      const players = createSinglesPlayers(parseRosterEntries($("singlesPlayers").value));
       const seed = `${Date.now()}-${players.map(player => player.name).join("-")}`;
       const result = generateSinglesSchedule(players, seed);
       return { mode: "singles", name: $("singlesSessionName").value, players, result };
@@ -886,6 +929,10 @@ document.querySelectorAll("[data-paste-target]").forEach(button => {
 $("pasteGroupedRosterBtn").addEventListener("click", pasteGroupedRosterFromClipboard);
 $("applyGroupedRosterBtn").addEventListener("click", () => {
   applyGroupedRoster($("groupedRosterInput").value);
+});
+$("pasteSinglesRosterBtn").addEventListener("click", pasteSinglesRosterFromClipboard);
+$("applySinglesRosterBtn").addEventListener("click", () => {
+  applySinglesRoster($("singlesRosterInput").value);
 });
 
 document.querySelectorAll(".bottom-tabs button").forEach(button => {

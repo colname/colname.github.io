@@ -6,15 +6,15 @@ export function makeId(prefix) {
 
 export function createPlayers(maleNames, femaleNames) {
   return [
-    ...maleNames.map((name, index) => ({
+    ...maleNames.map((entry, index) => ({
       id: makeId("player"),
-      name: name.trim(),
+      ...normalizePlayerEntry(entry),
       gender: "male",
       order: index
     })),
-    ...femaleNames.map((name, index) => ({
+    ...femaleNames.map((entry, index) => ({
       id: makeId("player"),
-      name: name.trim(),
+      ...normalizePlayerEntry(entry),
       gender: "female",
       order: maleNames.length + index
     }))
@@ -22,12 +22,25 @@ export function createPlayers(maleNames, femaleNames) {
 }
 
 export function createSinglesPlayers(names) {
-  return names.map((name, index) => ({
+  return names.map((entry, index) => ({
     id: makeId("player"),
-    name: name.trim(),
+    ...normalizePlayerEntry(entry),
     gender: "unspecified",
     order: index
   }));
+}
+
+function normalizePlayerEntry(entry) {
+  if (typeof entry === "string") return { name: entry.trim(), level: "" };
+  return {
+    name: String(entry?.name || "").trim(),
+    level: String(entry?.level || "").trim()
+  };
+}
+
+export function playerDisplayName(player) {
+  if (!player) return "未知队员";
+  return player.level ? `${player.name}〔${player.level}〕` : player.name;
 }
 
 export function createSession({ name, players, scheduleResult }) {
@@ -71,7 +84,7 @@ export function playerMap(session) {
 
 export function teamName(session, team) {
   const players = playerMap(session);
-  return team.map(id => players.get(id)?.name || "未知队员").join("＋");
+  return team.map(id => playerDisplayName(players.get(id))).join("＋");
 }
 
 export function matchTypeLabel(type) {

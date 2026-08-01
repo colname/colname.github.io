@@ -1,4 +1,4 @@
-import { parseRosterText } from "./roster.js?v=2";
+import { parseRosterText } from "./roster.js?v=3";
 
 export const MATCH_TYPE_LABELS = {
   mens: "男双",

@@ -2,6 +2,7 @@ export function calculateRanking(session) {
   const stats = new Map(session.players.map(player => [player.id, {
     id: player.id,
     name: player.name,
+    level: player.level || "",
     order: player.order,
     played: 0,
     wins: 0,

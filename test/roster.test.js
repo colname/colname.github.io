@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseGroupedRosterText, parseRosterText } from "../src/roster.js";
+import { formatRosterEntry, parseGroupedRosterText, parseRosterEntries, parseRosterText } from "../src/roster.js";
 
 test("识别带标题和顿号编号的接龙", () => {
   assert.deepEqual(
@@ -20,7 +20,7 @@ test("保留原有空格、逗号和换行输入方式", () => {
   assert.deepEqual(parseRosterText("张三 李四，王五\n赵六"), ["张三", "李四", "王五", "赵六"]);
 });
 
-test("从完整活动接龙中去除等级并按图标自动分男女", () => {
+test("从完整活动接龙中保留等级并按图标自动分男女", () => {
   const result = parseGroupedRosterText(`
 8.3（下周一）五台山7到10（两块场地起订）
 时间：08-03 星期一 19:00-22:00
@@ -48,6 +48,16 @@ test("从完整活动接龙中去除等级并按图标自动分男女", () => {
   assert.deepEqual(result.unknown, []);
   assert.equal(result.males[0], "十様锦");
   assert.equal(result.females[0], "条不过");
+  assert.equal(result.maleEntries[0].level, "4.0");
+  assert.equal(result.femaleEntries[0].level, "2.0");
+  assert.equal(formatRosterEntry(result.maleEntries[0]), "【4.0】十様锦");
+});
+
+test("普通名单解析也会保留等级资料", () => {
+  assert.deepEqual(parseRosterEntries("1.【3.5】张三 🌿\n2.【2.0】李四 🎀"), [
+    { name: "张三", level: "3.5" },
+    { name: "李四", level: "2.0" }
+  ]);
 });
 
 test("识别男双和混双分组，同时按图标合并到男女名单", () => {

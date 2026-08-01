@@ -80,3 +80,21 @@ test("任意非平局比分均可计入排名", () => {
   assert.equal(ranking[0].name, "A");
   assert.equal(ranking[0].net, 4);
 });
+
+test("排名结果保留队员等级", () => {
+  const session = {
+    players: [
+      { id: "a", name: "A", level: "4.0", order: 0 },
+      { id: "b", name: "B", level: "2.5", order: 1 }
+    ],
+    matches: [{
+      status: "completed",
+      scoreRecorded: true,
+      teams: [["a"], ["b"]],
+      score: { a: 15, b: 11 }
+    }]
+  };
+  const { ranking } = calculateRanking(session);
+  assert.equal(ranking[0].level, "4.0");
+  assert.equal(ranking[1].level, "2.5");
+});
